@@ -1,5 +1,4 @@
-conv.py
 venv
-conv.out
-conv.out.dSYM
+out
+.DS_Store
 
