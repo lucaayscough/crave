@@ -3,9 +3,9 @@
 mkdir -p out
 
 if [ -n "$FAST" ] && [ "$FAST" -eq 1 ]; then
-  clang -g -O3 -Wall src/main.c -o out/main
+  clang -g -O3 -Wall -Wno-unused-function src/main.c -o out/main
 else
-  clang -g -O0 -D INTERNAL -Wall src/main.c -o out/main
+  clang -g -O0 -D INTERNAL -Wall -Wno-unused-function src/main.c -o out/main
 fi
 
 if [ $? -eq 0 ]; then

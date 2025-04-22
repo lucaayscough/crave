@@ -1,46 +1,76 @@
 #ifndef TENSOR_H
 #define TENSOR_H
 
-#define MAX_RANK 6 
+#define TENSOR_MAX_RANK 6
+#define TENSOR_AUTO_CAP 0
 
-// TODO(luca): Define auto size tensor creation.
 // TODO(luca): Use size_t for some items such as count and cap.
-// TODO(luca): Write better tensor_print_data function.
 typedef struct {
-  uint32_t capacity;          // TODO(luca): Raname to cap
-  uint32_t item_count;        // TODO(luca): Raname to count
+  uint32_t cap;
+  uint32_t count;
   uint32_t rank;
-  uint32_t dims[MAX_RANK];
+  uint32_t dims[TENSOR_MAX_RANK];
   float* data;
-  float* swap_data;           // TODO(luca): Raname to swap
+  float* swap;
   char* name;
 } tensor_t;
 
-#define TUPLE(...) \
+// NOTE(luca): Example:
+// tensor_t* t = tensor_create(U32_TPL(1, 8, 16), TENSOR_AUTO_CAP);
+#define U32_TPL(...) \
   (uint32_t[]) {__VA_ARGS__}, sizeof((uint32_t[]) {__VA_ARGS__}) / sizeof(uint32_t)
 
-// TODO(luca): Add all definitions.
-// TODO(luca): Use restrict when possible.
-// TODO(luca): Add INTERVAL validation.
-void tensor_print_shape(tensor_t*);
-void tensor_print_data(tensor_t*);
-void tensor_print(tensor_t*);
+static void tensor_validate(tensor_t* tensor);
+static void tensor_get_strides(tensor_t* tensor, size_t* strides);
+static tensor_t* tensor_create(uint32_t* dims, uint32_t rank, uint32_t capacity);
+static tensor_t* tensor_load_from_file(char* path, uint32_t min_capacity);
+static void tensor_save_to_file(tensor_t* tensor, char* path);
+static void tensor_fill(tensor_t* restrict tensor, float val);
+static void tensor_mul(tensor_t* restrict tensor, float mul);
+static void tensor_add(tensor_t* restrict tensor, float add);
+static void tensor_tadd(tensor_t* restrict dest, tensor_t* src);
+static void tensor_arange(tensor_t* restrict tensor, float start, float step);
+static void tensor_cat(tensor_t* restrict dest, tensor_t* restrict src, uint32_t dim);
+static void tensor_pad(tensor_t* restrict tensor, size_t left_pad);
+static void tensor_trunc(tensor_t* restrict tensor, uint32_t left_trunc, uint32_t right_trunc);
+static void tensor_copy(tensor_t* restrict dest, tensor_t* restrict src);
+static void tensor_unsqueeze(tensor_t* restrict tensor, uint32_t dim);
+static void tensor_transpose(tensor_t* restrict tensor, uint32_t dim1, uint32_t dim2);
+static void tensor_permute(tensor_t* restrict tensor, uint32_t* restrict dims, uint32_t rank);
+static void tensor_flip(tensor_t* restrict tensor, uint32_t dim);
+static void tensor_snake(tensor_t* restrict tensor, tensor_t* restrict alpha);
+static void tensor_leaky_relu(tensor_t* restrict tensor, float alpha);
+static void tensor_sigmoid(tensor_t* restrict tensor);
+static void tensor_tanh(tensor_t* restrict tensor);
+static void tensor_tmul(tensor_t* restrict a, tensor_t* restrict b);
+static void tensor_split(tensor_t* restrict dest, tensor_t* restrict src);
+static void tensor_reshape(tensor_t* restrict tensor, uint32_t* restrict dims, uint32_t rank);
+static void tensor_conv1d(tensor_t* restrict x, tensor_t* restrict w, uint32_t stride, uint32_t dilation);
+static void tensor_conv_transpose1d(tensor_t* restrict x, tensor_t* restrict w, uint32_t stride, uint32_t dilation);
+static float tensor_l1_norm(tensor_t* restrict a, tensor_t* restrict b);
+static float tensor_mae(tensor_t* restrict a, tensor_t* restrict b);
+static float tensor_maxae(tensor_t* restrict a, tensor_t* restrict b);
+static void tensor_print_error_stats(tensor_t* restrict a, tensor_t* restrict b);
+static void tensor_print_shape(tensor_t* restrict tensor);
+static void tensor_print_data(tensor_t* restrict tensor);
+static void tensor_print(tensor_t* restrict tensor);
 
 void tensor_validate(tensor_t* tensor) {
+  assert(tensor != NULL);
   assert(tensor->data != NULL);
-  assert(tensor->swap_data != NULL);
+  assert(tensor->swap != NULL);
   assert(tensor->rank > 0);
-  assert(tensor->rank <= MAX_RANK);
-  assert(tensor->item_count <= tensor->capacity);
-  assert(tensor->capacity > 0);
-  assert(tensor->item_count > 0);
+  assert(tensor->rank <= TENSOR_MAX_RANK);
+  assert(tensor->count <= tensor->cap);
+  assert(tensor->cap > 0);
+  assert(tensor->count > 0);
   
   size_t count = 1;
   for (size_t i = 0; i < tensor->rank; ++i) {
     count *= tensor->dims[i];
   }
 
-  assert(count == tensor->item_count);
+  assert(count == tensor->count);
 }
 
 void tensor_get_strides(tensor_t* tensor, size_t* strides) {
@@ -59,28 +89,33 @@ void tensor_get_strides(tensor_t* tensor, size_t* strides) {
 }
 
 tensor_t* tensor_create(uint32_t* dims, uint32_t rank, uint32_t capacity) {
-  assert(rank);
+  assert(rank > 0);
+  assert(dims != NULL);
 
-  tensor_t* tensor = memory_alloc(sizeof(tensor_t));
+  tensor_t* tensor = arena_alloc(sizeof(tensor_t));
   assert(tensor);
 
-  tensor->capacity = capacity;
   tensor->rank = rank;
 
-  tensor->item_count = 1;
+  tensor->count = 1;
 
   for (uint32_t i = 0; i < rank; ++i) {
     assert(dims[i]);
     tensor->dims[i] = dims[i];
-    tensor->item_count *= dims[i];
+    tensor->count *= dims[i];
   }
 
-  assert(tensor->item_count <= capacity);
+  if (capacity == TENSOR_AUTO_CAP) {
+    tensor->cap = tensor->count;    
+  } else {
+    tensor->cap = capacity;
+    assert(tensor->count <= capacity);
+  }
 
-  tensor->data = memory_alloc(tensor->capacity * sizeof(float));
+  tensor->data = arena_alloc(tensor->cap * sizeof(float));
   assert(tensor->data);
-  tensor->swap_data = memory_alloc(tensor->capacity * sizeof(float));
-  assert(tensor->swap_data);
+  tensor->swap = arena_alloc(tensor->cap * sizeof(float));
+  assert(tensor->swap);
 
   return tensor;
 }
@@ -89,6 +124,8 @@ tensor_t* tensor_load_from_file(char* path, uint32_t min_capacity) {
   // FORMAT [name_len (uint32_t)] [name (char * name_len)]
   // [rank (uint32_t)] [dims (uint32_t * rank)]
   // [item_count (uint32_t)] [data (float * item_count)]
+
+  assert(path != NULL);
 
   // TODO(luca): We still want to use size_t.
   // TODO(luca): We want to ensure that the data is packed as uint and not int
@@ -101,7 +138,7 @@ tensor_t* tensor_load_from_file(char* path, uint32_t min_capacity) {
   int result = fread(&name_len, sizeof(uint32_t), 1, file);
   CHECK_GOTO(result, error, "Error.\n");
 
-  char* name = memory_alloc(name_len);
+  char* name = arena_alloc(name_len);
   result = fread(name, sizeof(char), name_len, file);
   CHECK_GOTO(result, error, "Error.\n");
 
@@ -109,8 +146,7 @@ tensor_t* tensor_load_from_file(char* path, uint32_t min_capacity) {
   result = fread(&rank, sizeof(uint32_t), 1, file);
   CHECK_GOTO(result, error, "Error.\n");
 
-  uint32_t* dims = alloca(sizeof(uint32_t) * rank);
-  CHECK_GOTO(dims, error, "Failed to allocate on the stack.\n");
+  uint32_t dims[TENSOR_MAX_RANK];
   result = fread(dims, sizeof(uint32_t), rank, file);
   CHECK_GOTO(result, error, "Error.\n");
 
@@ -140,6 +176,11 @@ void tensor_save_to_file(tensor_t* tensor, char* path) {
   // [rank (uint32_t)] [dims (uint32_t * rank)]
   // [item_count (uint32_t)] [data (float * item_count)]
 
+  DO_INTERNAL(
+    tensor_validate(tensor);
+    assert(path != NULL);
+  );
+
   FILE* file = fopen(path, "wb");
   CHECK_GOTO(file, error, "Failed to open file: %s.\n", path);
 
@@ -158,10 +199,10 @@ void tensor_save_to_file(tensor_t* tensor, char* path) {
   result = fwrite(tensor->dims, sizeof(uint32_t), tensor->rank, file);
   CHECK_GOTO(result, error, "Failed to write rank to file %s.\n", path);
 
-  result = fwrite(&tensor->item_count, sizeof(uint32_t), 1, file);
+  result = fwrite(&tensor->count, sizeof(uint32_t), 1, file);
   CHECK_GOTO(result, error, "Failed to write item_count to file %s.\n", path);
 
-  result = fwrite(tensor->data, sizeof(float), tensor->item_count, file);
+  result = fwrite(tensor->data, sizeof(float), tensor->count, file);
   CHECK_GOTO(result, error, "Failed to write data to file %s.\n", path);
 
   fclose(file);
@@ -170,95 +211,117 @@ error:
   fclose(file);
 }
 
-void tensor_fill(tensor_t* tensor, float val) {
-  for (size_t i = 0; i < tensor->item_count; ++i) {
+void tensor_fill(tensor_t* restrict tensor, float val) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+  );
+
+  for (size_t i = 0; i < tensor->count; ++i) {
     tensor->data[i] = val;
   }
 }
 
-void tensor_mul(tensor_t* tensor, float mul) {
-  for (uint32_t i = 0; i < tensor->item_count; ++i) {
+void tensor_mul(tensor_t* restrict tensor, float mul) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+  );
+
+  for (uint32_t i = 0; i < tensor->count; ++i) {
     tensor->data[i] *= mul;
   }
 }
 
-void tensor_add(tensor_t* tensor, float add) {
-  for (uint32_t i = 0; i < tensor->item_count; ++i) {
+void tensor_add(tensor_t* restrict tensor, float add) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+  );
+
+  for (uint32_t i = 0; i < tensor->count; ++i) {
     tensor->data[i] += add;
   }
 }
 
-void tensor_tadd(tensor_t* a, tensor_t* b) {
-  assert(a && "Tensor a is NULL.");
-  assert(b && "Tensor a is NULL.");
-  assert(a->rank == b->rank && "Tensor rank must match.");
-  assert(a->item_count == b->item_count && "Tensor item count must match.");
+void tensor_tadd(tensor_t* restrict dest, tensor_t* src) {
+  DO_INTERNAL(
+    tensor_validate(src);
+    tensor_validate(dest);
+    assert(src->rank == dest->rank && "Tensor rank must match.");
+    assert(src->count == dest->count && "Tensor item count must match.");
+  );
 
-  for (size_t i = 0; i < a->item_count; ++i) {
-    a->data[i] += b->data[i];
+  for (size_t i = 0; i < dest->count; ++i) {
+    dest->data[i] += src->data[i];
   }
 }
 
-void tensor_arange(tensor_t* tensor, float start, float step) {
-  for (size_t i = 0; i < tensor->item_count; ++i) {
+void tensor_arange(tensor_t* restrict tensor, float start, float step) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+  );
+
+  for (size_t i = 0; i < tensor->count; ++i) {
     tensor->data[i] = (float)i * step + start;
   }
 }
 
-void tensor_cat(tensor_t* a, tensor_t* b, uint32_t dim) {
-  // TODO(luca): Maybe tidy this up?
-  assert(a->rank == b->rank);
-  assert(dim < a->rank && "Dimension must be smaller than rank.");
+void tensor_cat(tensor_t* restrict dest, tensor_t* restrict src, uint32_t dim) {
+  DO_INTERNAL(
+    tensor_validate(src);
+    tensor_validate(dest);
+    assert(src->rank == dest->rank);
+    assert(dim < dest->rank && "Dimension must be smaller than rank.");
 
-  uint32_t rank = a->rank;
-  
-  for (uint32_t i = 0; i < rank; ++i) {
-    if (i != dim) {
-      assert(a->dims[i] == b->dims[i]);
+    for (uint32_t i = 0; i < dest->rank; ++i) {
+      if (i != dim) {
+        assert(dest->dims[i] == src->dims[i]);
+      }
     }
-  }
+  );
 
-  size_t a_cpy_size = a->dims[dim];
-  size_t b_cpy_size = b->dims[dim];
+  size_t rank = dest->rank;
+  size_t a_cpy_size = dest->dims[dim];
+  size_t b_cpy_size = src->dims[dim];
 
   for (uint32_t i = dim + 1; i < rank; ++i) {
-    a_cpy_size *= a->dims[i]; 
-    b_cpy_size *= b->dims[i]; 
+    a_cpy_size *= dest->dims[i];
+    b_cpy_size *= src->dims[i];
   }
 
-  float* out = a->swap_data;
-  float* srca = a->data;
-  float* srcb = b->data;
+  float* out = dest->swap;
+  float* a = dest->data;
+  float* b = src->data;
 
   size_t copied_count = 0;
-  size_t total_items = a->item_count + b->item_count;
-  assert(total_items <= a->capacity && "Total number of items will exceed tensor capacity.");
+  size_t total_items = dest->count + src->count;
+  assert(total_items <= dest->cap && "Total number of items will exceed tensor capacity.");
 
   size_t i = 0;
-
   while (copied_count < total_items) {
-    memcpy(&out[copied_count], &srca[i * a_cpy_size], sizeof(float) * a_cpy_size);
+    memcpy(&out[copied_count], &a[i * a_cpy_size], sizeof(float) * a_cpy_size);
     copied_count += a_cpy_size;
-    memcpy(&out[copied_count], &srcb[i * b_cpy_size], sizeof(float) * b_cpy_size);
+    memcpy(&out[copied_count], &b[i * b_cpy_size], sizeof(float) * b_cpy_size);
     copied_count += b_cpy_size;
     ++i; 
   }
 
   assert(copied_count == total_items);
+  dest->dims[dim] += src->dims[dim];
 
-  a->dims[dim] += b->dims[dim];
-
-  a->item_count = total_items;
-  a->swap_data = a->data;
-  a->data = out;
+  dest->count = total_items;
+  dest->swap = dest->data;
+  dest->data = out;
 }
 
-void tensor_pad(tensor_t* tensor, size_t left_pad) {
+void tensor_pad(tensor_t* restrict tensor, size_t left_pad) {
   // TODO(luca): Not a complete implementation of a tensor padding algorithm as
   // this only does left padding.
-  // TODO(luca): Also we should clean this up as well.
+
+  DO_INTERNAL(
+    tensor_validate(tensor);
+  );
+
   float* x = tensor->data;
-  float* y = tensor->swap_data;
+  float* y = tensor->swap;
 
   size_t rank = tensor->rank;
   size_t item_count = tensor->dims[tensor->rank - 1];
@@ -268,7 +331,7 @@ void tensor_pad(tensor_t* tensor, size_t left_pad) {
     total_dims *= tensor->dims[i];
   }
 
-  assert(total_dims * (left_pad + item_count) <= tensor->capacity);
+  assert(total_dims * (left_pad + item_count) <= tensor->cap);
 
   for (size_t i = 0; i < total_dims; ++i) {
     for (size_t j = 0; j < left_pad; ++j) {
@@ -283,17 +346,21 @@ void tensor_pad(tensor_t* tensor, size_t left_pad) {
   }
 
   tensor->data = y;
-  tensor->swap_data = x;
-  tensor->item_count = total_dims * (item_count + left_pad);
+  tensor->swap = x;
+  tensor->count = total_dims * (item_count + left_pad);
   tensor->dims[rank - 1] += left_pad;
 }
 
-void tensor_trunc(tensor_t* tensor, uint32_t left_trunc, uint32_t right_trunc) {
+void tensor_trunc(tensor_t* restrict tensor, uint32_t left_trunc, uint32_t right_trunc) {
   // TODO(luca): Only implements left and right truncation.
-  assert(tensor != NULL && "Tensor is NULL.");
-  assert(!(left_trunc == 0 && right_trunc == 0) && "");
+
+  DO_INTERNAL(
+    tensor_validate(tensor);
+    assert(!(left_trunc == 0 && right_trunc == 0) &&
+      "No point in truncating if both values are zero.");
+  );
   
-  size_t count = tensor->item_count;
+  size_t count = tensor->count;
   size_t rank = tensor->rank;
   size_t x_len = tensor->dims[rank - 1];
   assert(x_len > left_trunc + right_trunc && "Tensor too small for desired truncation.");
@@ -303,7 +370,7 @@ void tensor_trunc(tensor_t* tensor, uint32_t left_trunc, uint32_t right_trunc) {
   size_t y_len = x_len - left_trunc - right_trunc;   
 
   float* x = tensor->data;
-  float* y = tensor->swap_data;
+  float* y = tensor->swap;
 
   for (size_t r = 0, w = 0; r < count;) {
     memcpy(&y[w], &x[r + left_trunc], y_len * sizeof(float)); 
@@ -313,21 +380,20 @@ void tensor_trunc(tensor_t* tensor, uint32_t left_trunc, uint32_t right_trunc) {
 
   tensor->dims[rank - 1] = y_len;  
   tensor->data = y;
-  tensor->swap_data = x;
-  tensor->item_count = count / x_len * y_len;
+  tensor->swap = x;
+  tensor->count = count / x_len * y_len;
 }
 
-void tensor_copy(tensor_t* dest, tensor_t* src) {
-  assert(src != NULL);
-  assert(dest != NULL);
+void tensor_copy(tensor_t* restrict dest, tensor_t* restrict src) {
+  DO_INTERNAL(
+    tensor_validate(src);
+    tensor_validate(dest);
+  );
 
-  size_t item_count = src->item_count;
-  assert(item_count <= dest->capacity);
+  size_t item_count = src->count;
 
   float* x = src->data;
   float* y = dest->data;
-  assert(x != NULL);
-  assert(y != NULL);
   memcpy(y, x, item_count * sizeof(float));
 
   assert(src->rank > 0);
@@ -335,16 +401,18 @@ void tensor_copy(tensor_t* dest, tensor_t* src) {
   assert(dest->dims != NULL);
   memcpy(dest->dims, src->dims, src->rank * sizeof(uint32_t));
 
-  dest->item_count = item_count;
+  dest->count = item_count;
   dest->rank = src->rank;
   dest->name = src->name;
 }
 
-void tensor_unsqueeze(tensor_t* tensor, uint32_t dim) {
-  size_t rank = tensor->rank;
-  assert(rank < MAX_RANK);
-  assert(dim <= rank);
+void tensor_unsqueeze(tensor_t* restrict tensor, uint32_t dim) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+    assert(dim <= tensor->rank);
+  );
 
+  size_t rank = tensor->rank;
   for (size_t i = rank; i > dim; --i) {
     tensor->dims[i] = tensor->dims[i - 1];
   }
@@ -353,16 +421,18 @@ void tensor_unsqueeze(tensor_t* tensor, uint32_t dim) {
   tensor->rank = rank + 1;
 }
 
-void tensor_transpose(tensor_t* tensor, uint32_t dim1, uint32_t dim2) {
-  assert(tensor);
-  assert(dim1 < tensor->rank);
-  assert(dim2 < tensor->rank);
+void tensor_transpose(tensor_t* restrict tensor, uint32_t dim1, uint32_t dim2) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+    assert(dim1 < tensor->rank);
+    assert(dim2 < tensor->rank);
+  );
 
   size_t rank = tensor->rank;
-  size_t item_count = tensor->item_count;
+  size_t item_count = tensor->count;
 
-  size_t old_dims[MAX_RANK] = {};
-  size_t new_dims[MAX_RANK] = {};
+  size_t old_dims[TENSOR_MAX_RANK] = {};
+  size_t new_dims[TENSOR_MAX_RANK] = {};
 
   for (size_t i = 0; i < rank; ++i) {
     old_dims[i] = tensor->dims[i];
@@ -372,8 +442,8 @@ void tensor_transpose(tensor_t* tensor, uint32_t dim1, uint32_t dim2) {
   new_dims[dim1] = old_dims[dim2];
   new_dims[dim2] = old_dims[dim1];
 
-  size_t old_strides[MAX_RANK] = {};
-  size_t new_strides[MAX_RANK] = {};
+  size_t old_strides[TENSOR_MAX_RANK] = {};
+  size_t new_strides[TENSOR_MAX_RANK] = {};
 
   old_strides[rank - 1] = 1;
   new_strides[rank - 1] = 1;
@@ -384,9 +454,9 @@ void tensor_transpose(tensor_t* tensor, uint32_t dim1, uint32_t dim2) {
   }
 
   float* x = tensor->data;
-  float* y = tensor->swap_data;
+  float* y = tensor->swap;
 
-  size_t indices[MAX_RANK] = {};
+  size_t indices[TENSOR_MAX_RANK] = {};
 
   for (size_t i = 0; i < item_count; ++i) {
     size_t tmp = i;
@@ -411,20 +481,22 @@ void tensor_transpose(tensor_t* tensor, uint32_t dim1, uint32_t dim2) {
   tensor->dims[dim2] = new_dims[dim2];
 
   tensor->data = y;
-  tensor->swap_data = x;
+  tensor->swap = x;
 }
 
-void tensor_permute(tensor_t* tensor, uint32_t* dims, uint32_t rank) {
-  assert(tensor != NULL);
-  assert(dims != NULL);  
-  assert(rank > 0);
-  assert(tensor->rank == rank);
-  
-  size_t old_strides[MAX_RANK]; 
-  size_t new_strides[MAX_RANK]; 
+void tensor_permute(tensor_t* restrict tensor, uint32_t* restrict dims, uint32_t rank) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+    assert(dims != NULL);  
+    assert(rank > 0);
+    assert(tensor->rank == rank);
+  );
 
-  size_t old_dims[MAX_RANK];
-  size_t new_dims[MAX_RANK];
+  size_t old_strides[TENSOR_MAX_RANK]; 
+  size_t new_strides[TENSOR_MAX_RANK]; 
+
+  size_t old_dims[TENSOR_MAX_RANK];
+  size_t new_dims[TENSOR_MAX_RANK];
 
   for (size_t i = 0; i < rank; ++i) {
     old_dims[i] = tensor->dims[i];
@@ -439,11 +511,11 @@ void tensor_permute(tensor_t* tensor, uint32_t* dims, uint32_t rank) {
     new_strides[i - 1] = new_strides[i] * new_dims[i];
   }
 
-  size_t old_indices[MAX_RANK];
-  size_t new_indices[MAX_RANK];
-  size_t count = tensor->item_count;
+  size_t old_indices[TENSOR_MAX_RANK];
+  size_t new_indices[TENSOR_MAX_RANK];
+  size_t count = tensor->count;
   float* x = tensor->data;
-  float* y = tensor->swap_data;
+  float* y = tensor->swap;
 
   for (size_t i = 0; i < count; ++i) {
     size_t tmp = i;
@@ -465,7 +537,7 @@ void tensor_permute(tensor_t* tensor, uint32_t* dims, uint32_t rank) {
   }
 
   tensor->data = y;
-  tensor->swap_data = x;
+  tensor->swap = x;
 
   for (size_t i = 0; i < rank; ++i) {
     tensor->dims[i] = new_dims[i];
@@ -473,22 +545,21 @@ void tensor_permute(tensor_t* tensor, uint32_t* dims, uint32_t rank) {
 }
 
 void tensor_flip(tensor_t* restrict tensor, uint32_t dim) {
-  size_t rank = tensor->rank;
-
   DO_INTERNAL(
     tensor_validate(tensor);
-    assert(dim < rank);
+    assert(dim < tensor->rank);
     assert(tensor->dims[dim] > 1);
   );
 
-  size_t strides[MAX_RANK]; 
+  size_t rank = tensor->rank;
+  size_t strides[TENSOR_MAX_RANK]; 
   tensor_get_strides(tensor, &strides[0]);
   uint32_t* dims = tensor->dims; 
 
-  size_t indices[MAX_RANK];
-  size_t count = tensor->item_count;
+  size_t indices[TENSOR_MAX_RANK];
+  size_t count = tensor->count;
   float* x = tensor->data;
-  float* y = tensor->swap_data;
+  float* y = tensor->swap;
 
   for (size_t i = 0; i < count; ++i) {
     size_t tmp = i;
@@ -508,17 +579,17 @@ void tensor_flip(tensor_t* restrict tensor, uint32_t dim) {
   }
 
   tensor->data = y;
-  tensor->swap_data = x;
+  tensor->swap = x;
 }
 
 void tensor_snake(tensor_t* restrict tensor, tensor_t* restrict alpha) {
-  assert(tensor != NULL);
-  assert(alpha != NULL);
-  assert(tensor->data != NULL);
-  assert(alpha->data != NULL);
-  assert(tensor->rank == 3);
-  assert(alpha->rank == 2);
-  assert(alpha->dims[1] == 1);
+  DO_INTERNAL(
+    tensor_validate(tensor);
+    tensor_validate(alpha);
+    assert(tensor->rank == 3);
+    assert(alpha->rank == 2);
+    assert(alpha->dims[1] == 1);
+  );
 
   size_t batches = tensor->dims[0];
   size_t channels = tensor->dims[1];
@@ -541,35 +612,36 @@ void tensor_snake(tensor_t* restrict tensor, tensor_t* restrict alpha) {
 }
 
 void tensor_leaky_relu(tensor_t* restrict tensor, float alpha) {
-  assert(tensor != NULL && "Tensor is NULL.");
-  assert(tensor->data != NULL && "Tensor data is NULL.");
-  assert(alpha >= 0.f && "Alpha value must be >= 0.");
+  DO_INTERNAL(
+    tensor_validate(tensor);
+    assert(alpha >= 0.f && "Alpha value must be >= 0.");
+  );
 
-  size_t count = tensor->item_count;
+  size_t count = tensor->count;
   float* data = tensor->data;
-
   for (size_t i = 0; i < count; ++i) {
     data[i] = data[i] >= 0.f ? data[i] : data[i] * alpha;   
   }
 }
 
-void tensor_sigmoid(tensor_t* tensor) {
-  assert(tensor != NULL && "Tensor is NULL.");
-  assert(tensor->data != NULL && "Tensor data is NULL.");
+void tensor_sigmoid(tensor_t* restrict tensor) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+  );
 
-  size_t count = tensor->item_count;
+  size_t count = tensor->count;
   float* data = tensor->data;
-
   for (size_t i = 0; i < count; ++i) {
     data[i] = 1.f / (1.f + expf(-data[i]));
   }
 }
 
-void tensor_tanh(tensor_t* tensor) {
-  assert(tensor != NULL && "Tensor is NULL.");
-  assert(tensor->data != NULL && "Tensor data is NULL.");
+void tensor_tanh(tensor_t* restrict tensor) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+  );
 
-  size_t count = tensor->item_count;
+  size_t count = tensor->count;
   float* data = tensor->data;
 
   for (size_t i = 0; i < count; ++i) {
@@ -577,37 +649,41 @@ void tensor_tanh(tensor_t* tensor) {
   }
 }
 
-void tensor_tmul(tensor_t* a, tensor_t* b) {
+void tensor_tmul(tensor_t* restrict a, tensor_t* restrict b) {
   assert(a && "Tensor a is NULL.");
   assert(b && "Tensor a is NULL.");
   assert(a->rank == b->rank && "Tensor rank must match.");
-  assert(a->item_count == b->item_count && "Tensor item count must match.");
+  assert(a->count == b->count && "Tensor item count must match.");
 
-  for (size_t i = 0; i < a->item_count; ++i) {
+  for (size_t i = 0; i < a->count; ++i) {
     a->data[i] *= b->data[i];
   }
 }
 
-void tensor_split(tensor_t* dest, tensor_t* src) {
+void tensor_split(tensor_t* restrict dest, tensor_t* restrict src) {
   // TODO(luca): We will later expand on this. For now, we assume that the
   // input shape is [1, x, x], the split dim is 1 and the size is 2.
 
-  assert(src->rank == 3);
-  assert(src->dims[0] == 1);
-  assert(src->dims[1] % 2 == 0);
-  assert(src->item_count % 2 == 0);
-  assert(dest->capacity >= src->item_count / 2);
+  DO_INTERNAL(
+    tensor_validate(dest);
+    tensor_validate(src);
+    assert(src->rank == 3);
+    assert(src->dims[0] == 1);
+    assert(src->dims[1] % 2 == 0);
+    assert(src->count % 2 == 0);
+    assert(dest->cap >= src->count / 2);
+  );
 
   float* x = src->data;
   float* y = dest->data;
-  size_t count = src->item_count / 2;
+  size_t count = src->count / 2;
 
   memcpy(y, &x[count], count * sizeof(float));
 
   src->dims[1] = src->dims[1] / 2;
-  src->item_count = src->item_count / 2;
+  src->count = src->count / 2;
 
-  dest->item_count = src->item_count;
+  dest->count = src->count;
   dest->rank = src->rank;
 
   for (size_t i = 0; i < dest->rank; ++i) {
@@ -615,9 +691,10 @@ void tensor_split(tensor_t* dest, tensor_t* src) {
   }
 }
 
-void tensor_reshape(tensor_t* restrict tensor, uint32_t* dims, uint32_t rank) {
-  assert(tensor != NULL);
-  assert(rank <= MAX_RANK);
+void tensor_reshape(tensor_t* restrict tensor, uint32_t* restrict dims, uint32_t rank) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+  );
 
   size_t count = 1;
   for (uint32_t i = 0; i < rank; ++i) {
@@ -625,19 +702,19 @@ void tensor_reshape(tensor_t* restrict tensor, uint32_t* dims, uint32_t rank) {
     tensor->dims[i] = dims[i];  
   }
 
-  assert(count == tensor->item_count);
+  assert(count == tensor->count);
   tensor->rank = rank;
 }
 
 void tensor_conv1d(tensor_t* restrict x, tensor_t* restrict w, uint32_t stride, uint32_t dilation) {
-  assert(x);
-  assert(w);
-  assert(stride);
-  assert(dilation);
-
-  assert(x->item_count);
-  assert(x->rank == 3);
-  assert(w->rank == 3);
+  DO_INTERNAL(
+    tensor_validate(x);
+    tensor_validate(w);
+    assert(stride);
+    assert(dilation);
+    assert(x->rank == 3);
+    assert(w->rank == 3);
+  );
 
   size_t out_ch = w->dims[0];
   size_t in_ch = w->dims[1];
@@ -655,13 +732,13 @@ void tensor_conv1d(tensor_t* restrict x, tensor_t* restrict w, uint32_t stride, 
 
   float* x_data = x->data;
   float* w_data = w->data;
-  float* y_data = x->swap_data;
+  float* y_data = x->swap;
 
   x->dims[1] = out_ch;
   x->dims[2] = y_len;
-  x->item_count = x->dims[0] * x->dims[1] * x->dims[2];
+  x->count = x->dims[0] * x->dims[1] * x->dims[2];
 
-  assert(x->item_count <= x->capacity);
+  assert(x->count <= x->cap);
 
   for (size_t b = 0; b < x_batches; ++b) {
     for (size_t oc = 0; oc < out_ch; ++oc) {
@@ -685,18 +762,18 @@ void tensor_conv1d(tensor_t* restrict x, tensor_t* restrict w, uint32_t stride, 
   }
 
   x->data = y_data;
-  x->swap_data = x_data;
+  x->swap = x_data;
 }
 
 void tensor_conv_transpose1d(tensor_t* restrict x, tensor_t* restrict w, uint32_t stride, uint32_t dilation) {
-  assert(x);
-  assert(w);
-  assert(stride);
-  assert(dilation);
-
-  assert(x->item_count);
-  assert(x->rank == 3);
-  assert(w->rank == 3);
+  DO_INTERNAL(
+    tensor_validate(x);
+    tensor_validate(w);
+    assert(stride);
+    assert(dilation);
+    assert(x->rank == 3);
+    assert(w->rank == 3);
+  );
 
   size_t in_ch = w->dims[0];
   size_t out_ch = w->dims[1];
@@ -713,15 +790,15 @@ void tensor_conv_transpose1d(tensor_t* restrict x, tensor_t* restrict w, uint32_
 
   float* x_data = x->data;
   float* w_data = w->data;
-  float* y_data = x->swap_data;
+  float* y_data = x->swap;
 
   x->dims[1] = out_ch;
   x->dims[2] = y_len;
-  x->item_count = x->dims[0] * x->dims[1] * x->dims[2];
+  x->count = x->dims[0] * x->dims[1] * x->dims[2];
 
-  assert(x->item_count <= x->capacity);
+  assert(x->count <= x->cap);
 
-  for (size_t i = 0; i < x->item_count; ++i) {
+  for (size_t i = 0; i < x->count; ++i) {
     y_data[i] = 0;
   }
 
@@ -742,18 +819,21 @@ void tensor_conv_transpose1d(tensor_t* restrict x, tensor_t* restrict w, uint32_
   }
 
   x->data = y_data;
-  x->swap_data = x_data;
+  x->swap = x_data;
 }
 
-float tensor_l1_norm(tensor_t* a, tensor_t* b) {
-  assert(a->rank == b->rank);
-  assert(a->dims[0] == b->dims[0]);
-  assert(a->dims[1] == b->dims[1]);
-  assert(a->dims[2] == b->dims[2]);
-  assert(a->item_count == b->item_count);
-  assert(a->item_count != 0);
+float tensor_l1_norm(tensor_t* restrict a, tensor_t* restrict b) {
+  DO_INTERNAL(
+    tensor_validate(a);
+    tensor_validate(b);
+    assert(a->rank == b->rank);
+    assert(a->dims[0] == b->dims[0]);
+    assert(a->dims[1] == b->dims[1]);
+    assert(a->dims[2] == b->dims[2]);
+    assert(a->count == b->count);
+  );
 
-  size_t count = a->item_count;
+  size_t count = a->count;
   float diff = 0;
   for (size_t i = 0; i < count; ++i) {
     float result = fabs(a->data[i] - b->data[i]);
@@ -763,28 +843,41 @@ float tensor_l1_norm(tensor_t* a, tensor_t* b) {
   return diff;
 }
 
-float tensor_mae(tensor_t* a, tensor_t* b) {
-  assert(a->rank == b->rank);
-  assert(a->dims[0] == b->dims[0]);
-  assert(a->dims[1] == b->dims[1]);
-  assert(a->dims[2] == b->dims[2]);
-  assert(a->item_count == b->item_count);
-  assert(a->item_count != 0);
+float tensor_mae(tensor_t* restrict a, tensor_t* restrict b) {
+  DO_INTERNAL(
+    tensor_validate(a);
+    tensor_validate(b);
+    assert(a->rank == b->rank);
+    assert(a->dims[0] == b->dims[0]);
+    assert(a->dims[1] == b->dims[1]);
+    assert(a->dims[2] == b->dims[2]);
+    assert(a->count == b->count);
+  );
 
   float diff = tensor_l1_norm(a, b);
-  return diff / (float)a->item_count;
+  return diff / (float)a->count;
 }
 
-float tensor_maxae(tensor_t* a, tensor_t* b) {
+float tensor_maxae(tensor_t* restrict a, tensor_t* restrict b) {
+  DO_INTERNAL(
+    tensor_validate(a);
+    tensor_validate(b);
+    assert(a->rank == b->rank);
+    assert(a->dims[0] == b->dims[0]);
+    assert(a->dims[1] == b->dims[1]);
+    assert(a->dims[2] == b->dims[2]);
+    assert(a->count == b->count);
+  );
+
   assert(a->rank == b->rank);
   assert(a->dims[0] == b->dims[0]);
   assert(a->dims[1] == b->dims[1]);
   assert(a->dims[2] == b->dims[2]);
-  assert(a->item_count == b->item_count);
-  assert(a->item_count != 0);
+  assert(a->count == b->count);
+  assert(a->count != 0);
 
   float max_diff = 0;
-  size_t count = a->item_count;
+  size_t count = a->count;
   for (size_t i = 0; i < count; ++i) {
     float result = fabs(a->data[i] - b->data[i]);
     if (result > max_diff) {
@@ -795,7 +888,17 @@ float tensor_maxae(tensor_t* a, tensor_t* b) {
   return max_diff;
 }
 
-void tensor_print_error_stats(tensor_t* a, tensor_t* b) {
+void tensor_print_error_stats(tensor_t* restrict a, tensor_t* restrict b) {
+  DO_INTERNAL(
+    tensor_validate(a);
+    tensor_validate(b);
+    assert(a->rank == b->rank);
+    assert(a->dims[0] == b->dims[0]);
+    assert(a->dims[1] == b->dims[1]);
+    assert(a->dims[2] == b->dims[2]);
+    assert(a->count == b->count);
+  );
+
   float l1_norm = tensor_l1_norm(a, b);
   float mae = tensor_mae(a, b);
   float maxae = tensor_maxae(a, b);
@@ -805,7 +908,11 @@ void tensor_print_error_stats(tensor_t* a, tensor_t* b) {
   printf("Mean Absolute Error: %.12f\n", mae);
 }
 
-void tensor_print_shape(tensor_t* tensor) {
+void tensor_print_shape(tensor_t* restrict tensor) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+  );
+
   size_t rank = tensor->rank;
 
   printf("%s shape: [", tensor->name); 
@@ -817,19 +924,27 @@ void tensor_print_shape(tensor_t* tensor) {
   printf("%u]\n", tensor->dims[rank - 1]);
 }
 
-void tensor_print_data(tensor_t* tensor) {
+void tensor_print_data(tensor_t* restrict tensor) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+  );
+
   // TODO(luca): Add nicer tensor printing.
   printf("Content of tensor: %s\n", tensor->name); 
-  for (size_t i = 0; i < tensor->item_count; ++i) {
+  for (size_t i = 0; i < tensor->count; ++i) {
     printf("%.0f, ", tensor->data[i]);
   }
   printf("\n");
 }
 
-void tensor_print(tensor_t* tensor) {
+void tensor_print(tensor_t* restrict tensor) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+  );
+
   tensor_print_shape(tensor);
   tensor_print_data(tensor);
 }
 
-#undef MAX_RANK
+#undef TENSOR_MAX_RANK
 #endif // TENSOR_H

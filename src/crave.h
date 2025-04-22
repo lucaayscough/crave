@@ -12,7 +12,7 @@
 
 #include "log.h"
 #include "debug.h"
-#include "memory.h"
+#include "arena.h"
 #include "file.h"
 #include "time.h"
 #include "tensor.h"
