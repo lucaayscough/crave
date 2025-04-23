@@ -39,7 +39,7 @@ void* arena_alloc(size_t size) {
     return NULL;
   }
 
-  void* data = &g_arena.data[g_arena.index];
+  char* data = ((char*)(g_arena.data))[g_arena.index];
   g_arena.index += alligned_size;
 
   return data;

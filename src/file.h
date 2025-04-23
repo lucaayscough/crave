@@ -1,6 +1,8 @@
 #ifndef FILE_H
 #define FILE_H
 
+#include <dirent.h>
+
 // TODO(luca): Tidy this up.
 #define MAX_FILE_PATH_COUNT 1024
 
