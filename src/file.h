@@ -1,6 +1,7 @@
 #ifndef FILE_H
 #define FILE_H
 
+// TODO(luca): Tidy this up.
 #define MAX_FILE_PATH_COUNT 1024
 
 typedef struct {
@@ -8,6 +9,10 @@ typedef struct {
   size_t capacity;
   size_t count;
 } file_list_t;
+
+// TODO(luca): Add get_num_files_in_dir
+// TODO(luca): Add get_dir_exists
+// TODO(luca): Pass our own memory to file_list_create_from_dir
 
 file_list_t* file_list_create_from_dir(char* dir_path) {
   size_t dir_path_len = strlen(dir_path);
@@ -54,7 +59,6 @@ file_list_t* file_list_create_from_dir(char* dir_path) {
   return list; 
    
 error:
-  // TODO(luca): Add a way to deallocate the memory.
   closedir(dir);
   return NULL;
 }

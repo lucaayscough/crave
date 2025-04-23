@@ -1,8 +1,6 @@
 #ifndef V1_H
 #define V1_H
 
-#define BIN_PATH "/Users/lucaayscough/dev/crave/out/bin/"
-
 static tensor_t* noise;
 static tensor_t* latent_pca;
 static tensor_t* latent_mean;
@@ -42,43 +40,45 @@ static tensor_t* net_20_alpha;
 static tensor_t* net_21_weight;
 
 void load_weights() {
-  noise = tensor_load_from_file(BIN_PATH"pre_process_latent_noise.bin", 0);
-  latent_pca = tensor_load_from_file(BIN_PATH"pre_process_latent_latent_pca.bin", 0);
-  latent_mean = tensor_load_from_file(BIN_PATH"pre_process_latent_latent_mean.bin", 0);
-  pqmf_inverse_conv_weight = tensor_load_from_file(BIN_PATH"pqmf.inverse_conv.weight.bin", 0);
-  net_0_weight = tensor_load_from_file(BIN_PATH"decoder.net.0.weight.bin", 0);
-  net_1_alpha = tensor_load_from_file(BIN_PATH"decoder.net.1.alpha.bin", 0);
-  net_2_weight = tensor_load_from_file(BIN_PATH"decoder.net.2.weight.bin", 0);
-  decoder_net_3_aligned_branches_0_net_1_weight = tensor_load_from_file(BIN_PATH"decoder.net.3.aligned.branches.0.net.1.weight.bin", 0);
-  decoder_net_3_aligned_branches_0_net_3_weight = tensor_load_from_file(BIN_PATH"decoder.net.3.aligned.branches.0.net.3.weight.bin", 0);
-  decoder_net_4_aligned_branches_0_net_1_weight = tensor_load_from_file(BIN_PATH"decoder.net.4.aligned.branches.0.net.1.weight.bin", 0);
-  decoder_net_4_aligned_branches_0_net_3_weight = tensor_load_from_file(BIN_PATH"decoder.net.4.aligned.branches.0.net.3.weight.bin", 0);
-  net_5_alpha = tensor_load_from_file(BIN_PATH"decoder.net.5.alpha.bin", 0);
-  net_6_weight = tensor_load_from_file(BIN_PATH"decoder.net.6.weight.bin", 0);
-  decoder_net_7_aligned_branches_0_net_1_weight = tensor_load_from_file(BIN_PATH"decoder.net.7.aligned.branches.0.net.1.weight.bin", 0);
-  decoder_net_7_aligned_branches_0_net_3_weight = tensor_load_from_file(BIN_PATH"decoder.net.7.aligned.branches.0.net.3.weight.bin", 0);
-  decoder_net_8_aligned_branches_0_net_1_weight = tensor_load_from_file(BIN_PATH"decoder.net.8.aligned.branches.0.net.1.weight.bin", 0);
-  decoder_net_8_aligned_branches_0_net_3_weight = tensor_load_from_file(BIN_PATH"decoder.net.8.aligned.branches.0.net.3.weight.bin", 0);
-  decoder_net_9_aligned_branches_0_net_1_weight = tensor_load_from_file(BIN_PATH"decoder.net.9.aligned.branches.0.net.1.weight.bin", 0);
-  decoder_net_9_aligned_branches_0_net_3_weight = tensor_load_from_file(BIN_PATH"decoder.net.9.aligned.branches.0.net.3.weight.bin", 0);
-  net_10_alpha = tensor_load_from_file(BIN_PATH"decoder.net.10.alpha.bin", 0);
-  net_11_weight = tensor_load_from_file(BIN_PATH"decoder.net.11.weight.bin", 0);
-  decoder_net_12_aligned_branches_0_net_1_weight = tensor_load_from_file(BIN_PATH"decoder.net.12.aligned.branches.0.net.1.weight.bin", 0);
-  decoder_net_12_aligned_branches_0_net_3_weight = tensor_load_from_file(BIN_PATH"decoder.net.12.aligned.branches.0.net.3.weight.bin", 0);
-  decoder_net_13_aligned_branches_0_net_1_weight = tensor_load_from_file(BIN_PATH"decoder.net.13.aligned.branches.0.net.1.weight.bin", 0);
-  decoder_net_13_aligned_branches_0_net_3_weight = tensor_load_from_file(BIN_PATH"decoder.net.13.aligned.branches.0.net.3.weight.bin", 0);
-  decoder_net_14_aligned_branches_0_net_1_weight = tensor_load_from_file(BIN_PATH"decoder.net.14.aligned.branches.0.net.1.weight.bin", 0);
-  decoder_net_14_aligned_branches_0_net_3_weight = tensor_load_from_file(BIN_PATH"decoder.net.14.aligned.branches.0.net.3.weight.bin", 0);
-  net_15_alpha = tensor_load_from_file(BIN_PATH"decoder.net.15.alpha.bin", 0);
-  net_16_weight = tensor_load_from_file(BIN_PATH"decoder.net.16.weight.bin", 0);
-  decoder_net_17_aligned_branches_0_net_1_weight = tensor_load_from_file(BIN_PATH"decoder.net.17.aligned.branches.0.net.1.weight.bin", 0);
-  decoder_net_17_aligned_branches_0_net_3_weight = tensor_load_from_file(BIN_PATH"decoder.net.17.aligned.branches.0.net.3.weight.bin", 0);
-  decoder_net_18_aligned_branches_0_net_1_weight = tensor_load_from_file(BIN_PATH"decoder.net.18.aligned.branches.0.net.1.weight.bin", 0);
-  decoder_net_18_aligned_branches_0_net_3_weight = tensor_load_from_file(BIN_PATH"decoder.net.18.aligned.branches.0.net.3.weight.bin", 0);
-  decoder_net_19_aligned_branches_0_net_1_weight = tensor_load_from_file(BIN_PATH"decoder.net.19.aligned.branches.0.net.1.weight.bin", 0);
-  decoder_net_19_aligned_branches_0_net_3_weight = tensor_load_from_file(BIN_PATH"decoder.net.19.aligned.branches.0.net.3.weight.bin", 0);
-  net_20_alpha = tensor_load_from_file(BIN_PATH"decoder.net.20.alpha.bin", 0);
-  net_21_weight = tensor_load_from_file(BIN_PATH"decoder.net.21.weight.bin", 0);
+  tensor_list_t* list = tensor_load_from_blob("weights.bin");
+
+  noise = tensor_find_in_list(list, "pre_process_latent_noise");
+  latent_pca = tensor_find_in_list(list, "pre_process_latent_latent_pca");
+  latent_mean = tensor_find_in_list(list, "pre_process_latent_latent_mean");
+  pqmf_inverse_conv_weight = tensor_find_in_list(list, "pqmf.inverse_conv.weight");
+  net_0_weight = tensor_find_in_list(list, "decoder.net.0.weight");
+  net_1_alpha = tensor_find_in_list(list, "decoder.net.1.alpha");
+  net_2_weight = tensor_find_in_list(list, "decoder.net.2.weight");
+  decoder_net_3_aligned_branches_0_net_1_weight = tensor_find_in_list(list, "decoder.net.3.aligned.branches.0.net.1.weight");
+  decoder_net_3_aligned_branches_0_net_3_weight = tensor_find_in_list(list, "decoder.net.3.aligned.branches.0.net.3.weight");
+  decoder_net_4_aligned_branches_0_net_1_weight = tensor_find_in_list(list, "decoder.net.4.aligned.branches.0.net.1.weight");
+  decoder_net_4_aligned_branches_0_net_3_weight = tensor_find_in_list(list, "decoder.net.4.aligned.branches.0.net.3.weight");
+  net_5_alpha = tensor_find_in_list(list, "decoder.net.5.alpha");
+  net_6_weight = tensor_find_in_list(list, "decoder.net.6.weight");
+  decoder_net_7_aligned_branches_0_net_1_weight = tensor_find_in_list(list, "decoder.net.7.aligned.branches.0.net.1.weight");
+  decoder_net_7_aligned_branches_0_net_3_weight = tensor_find_in_list(list, "decoder.net.7.aligned.branches.0.net.3.weight");
+  decoder_net_8_aligned_branches_0_net_1_weight = tensor_find_in_list(list, "decoder.net.8.aligned.branches.0.net.1.weight");
+  decoder_net_8_aligned_branches_0_net_3_weight = tensor_find_in_list(list, "decoder.net.8.aligned.branches.0.net.3.weight");
+  decoder_net_9_aligned_branches_0_net_1_weight = tensor_find_in_list(list, "decoder.net.9.aligned.branches.0.net.1.weight");
+  decoder_net_9_aligned_branches_0_net_3_weight = tensor_find_in_list(list, "decoder.net.9.aligned.branches.0.net.3.weight");
+  net_10_alpha = tensor_find_in_list(list, "decoder.net.10.alpha");
+  net_11_weight = tensor_find_in_list(list, "decoder.net.11.weight");
+  decoder_net_12_aligned_branches_0_net_1_weight = tensor_find_in_list(list, "decoder.net.12.aligned.branches.0.net.1.weight");
+  decoder_net_12_aligned_branches_0_net_3_weight = tensor_find_in_list(list, "decoder.net.12.aligned.branches.0.net.3.weight");
+  decoder_net_13_aligned_branches_0_net_1_weight = tensor_find_in_list(list, "decoder.net.13.aligned.branches.0.net.1.weight");
+  decoder_net_13_aligned_branches_0_net_3_weight = tensor_find_in_list(list, "decoder.net.13.aligned.branches.0.net.3.weight");
+  decoder_net_14_aligned_branches_0_net_1_weight = tensor_find_in_list(list, "decoder.net.14.aligned.branches.0.net.1.weight");
+  decoder_net_14_aligned_branches_0_net_3_weight = tensor_find_in_list(list, "decoder.net.14.aligned.branches.0.net.3.weight");
+  net_15_alpha = tensor_find_in_list(list, "decoder.net.15.alpha");
+  net_16_weight = tensor_find_in_list(list, "decoder.net.16.weight");
+  decoder_net_17_aligned_branches_0_net_1_weight = tensor_find_in_list(list, "decoder.net.17.aligned.branches.0.net.1.weight");
+  decoder_net_17_aligned_branches_0_net_3_weight = tensor_find_in_list(list, "decoder.net.17.aligned.branches.0.net.3.weight");
+  decoder_net_18_aligned_branches_0_net_1_weight = tensor_find_in_list(list, "decoder.net.18.aligned.branches.0.net.1.weight");
+  decoder_net_18_aligned_branches_0_net_3_weight = tensor_find_in_list(list, "decoder.net.18.aligned.branches.0.net.3.weight");
+  decoder_net_19_aligned_branches_0_net_1_weight = tensor_find_in_list(list, "decoder.net.19.aligned.branches.0.net.1.weight");
+  decoder_net_19_aligned_branches_0_net_3_weight = tensor_find_in_list(list, "decoder.net.19.aligned.branches.0.net.3.weight");
+  net_20_alpha = tensor_find_in_list(list, "decoder.net.20.alpha");
+  net_21_weight = tensor_find_in_list(list, "decoder.net.21.weight");
 }
 
 void pre_process_latent(tensor_t* z) {

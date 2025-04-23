@@ -8,7 +8,8 @@ void run_tests() {
 }
 
 int main(int argc, char* argv[]) {
-  arena_init(16 * MB);
+  arena_init(20 * MB);
+ 
   load_weights();
 
   timer_start();

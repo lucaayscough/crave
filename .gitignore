@@ -1,4 +1,5 @@
 venv
 out
 .DS_Store
+*.bin
 

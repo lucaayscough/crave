@@ -15,6 +15,11 @@ typedef struct {
   char* name;
 } tensor_t;
 
+typedef struct {
+  tensor_t** tensors;
+  size_t count;
+} tensor_list_t;
+
 // NOTE(luca): Example:
 // tensor_t* t = tensor_create(U32_TPL(1, 8, 16), TENSOR_AUTO_CAP);
 #define U32_TPL(...) \
@@ -23,6 +28,9 @@ typedef struct {
 static void tensor_validate(tensor_t* tensor);
 static void tensor_get_strides(tensor_t* tensor, size_t* strides);
 static tensor_t* tensor_create(uint32_t* dims, uint32_t rank, uint32_t capacity);
+static tensor_t* tensor_find_in_list(tensor_list_t* list, char* name);
+static tensor_list_t* tensor_load_from_blob(char* path);
+static tensor_t* tensor_load_from_stream(FILE* file, uint32_t min_capacity);
 static tensor_t* tensor_load_from_file(char* path, uint32_t min_capacity);
 static void tensor_save_to_file(tensor_t* tensor, char* path);
 static void tensor_fill(tensor_t* restrict tensor, float val);
@@ -120,6 +128,85 @@ tensor_t* tensor_create(uint32_t* dims, uint32_t rank, uint32_t capacity) {
   return tensor;
 }
 
+tensor_t* tensor_find_in_list(tensor_list_t* list, char* name) {
+  for (size_t i = 0; i < list->count; ++i) {
+    if (strcmp(list->tensors[i]->name, name) == 0) {
+      return list->tensors[i];
+    }
+  }
+
+  return NULL;
+}
+
+tensor_t* tensor_load_from_stream(FILE* file, uint32_t min_capacity) {
+  // FORMAT [name_len (uint32_t)] [name (char * name_len)]
+  // [rank (uint32_t)] [dims (uint32_t * rank)]
+  // [item_count (uint32_t)] [data (float * item_count)]
+
+  assert(file != NULL);
+
+  uint32_t name_len;
+  int result = fread(&name_len, sizeof(uint32_t), 1, file);
+  CHECK_GOTO(result == 1, error, "Error.\n");
+
+  char* name = arena_alloc(name_len);
+  result = fread(name, sizeof(char), name_len, file);
+  CHECK_GOTO(result == (int)name_len, error, "Error.\n");
+
+  uint32_t rank;
+  result = fread(&rank, sizeof(uint32_t), 1, file);
+  CHECK_GOTO(result == 1, error, "Error.\n");
+
+  uint32_t dims[TENSOR_MAX_RANK];
+  result = fread(dims, sizeof(uint32_t), rank, file);
+  CHECK_GOTO(result == (int)rank, error, "Error.\n");
+
+  uint32_t item_count;
+  result = fread(&item_count, sizeof(uint32_t), 1, file);
+  CHECK_GOTO(result == 1, error, "Error\n");
+
+  uint32_t capacity = item_count < min_capacity ? min_capacity : item_count;
+  tensor_t* tensor = tensor_create(dims, rank, capacity);
+  CHECK_GOTO(tensor, error, "Failed to allocate memory for tensor.\n");
+
+  result = fread(tensor->data, sizeof(float), item_count, file);
+  CHECK_GOTO(result == (int)item_count, error, "Error.\n");
+
+  tensor->name = name;
+
+  return tensor;
+
+error:
+  return NULL;
+}
+
+tensor_list_t* tensor_load_from_blob(char* path) {
+  assert(path);
+
+  // TODO(luca): Add file.
+  FILE* file = fopen(path, "rb");
+  CHECK_GOTO(file, error, "Failed to open file: %s.\n", path);
+
+  uint32_t count;
+  int result = fread(&count, sizeof(uint32_t), 1, file);
+  CHECK_GOTO(result == 1, error, "Failed to read from file.");
+
+  tensor_list_t* list = arena_alloc(sizeof(tensor_list_t*));
+  list->tensors = arena_alloc(count * sizeof(tensor_t*));
+  list->count = count;
+
+  for (int i = 0; i < count; ++i) {
+    list->tensors[i] = tensor_load_from_stream(file, TENSOR_AUTO_CAP);
+  }
+
+  fclose(file);
+  return list;
+    
+error:
+  fclose(file);
+  return NULL;
+}
+
 tensor_t* tensor_load_from_file(char* path, uint32_t min_capacity) {
   // FORMAT [name_len (uint32_t)] [name (char * name_len)]
   // [rank (uint32_t)] [dims (uint32_t * rank)]
@@ -127,6 +214,8 @@ tensor_t* tensor_load_from_file(char* path, uint32_t min_capacity) {
 
   assert(path != NULL);
 
+  // TODO(luca): See if it is possible to lock file while reading/writing.
+  // TODO(luca): Check that the size of the reads matches the expected size.
   // TODO(luca): We still want to use size_t.
   // TODO(luca): We want to ensure that the data is packed as uint and not int
   // in the Python script.

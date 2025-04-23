@@ -14,6 +14,8 @@ typedef struct {
 // TODO(luca): Add allocation boundaries to validate memory writes.
 // TODO(luca): Allocate memory normally to validate memory writes.
 // TODO(luca): Use base pointer.
+// TODO(luca): Make non-global.
+// TODO(luca): Add option to commit memory when allocating.
 
 static arena_t g_arena;
 
@@ -33,7 +35,7 @@ void* arena_alloc(size_t size) {
 
   // TODO(luca): Add boundary bytes for safety.
   if (g_arena.index + alligned_size > g_arena.size) {
-    LOG_AND_ASSERT("Not enough arena.");
+    LOG_AND_ASSERT("Not enough memory.");
     return NULL;
   }
 
