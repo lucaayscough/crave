@@ -41,8 +41,9 @@ void* arena_alloc(arena_t* arena, size_t size) {
   void* data = arena->data + arena->index;
   arena->index += alligned_size;
 
-  void* memory = malloc(size);
-  return memory;
+  //void* memory = malloc(size);
+  //return memory;
+  return data;
 }
 
 void arena_free(arena_t* arena) {
