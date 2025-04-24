@@ -7,46 +7,46 @@
 
 typedef struct {
   size_t size;
-  uint64_t index;
+  size_t index;
   void* data;
 } arena_t;
 
 // TODO(luca): Add allocation boundaries to validate memory writes.
 // TODO(luca): Allocate memory normally to validate memory writes.
 // TODO(luca): Use base pointer.
-// TODO(luca): Make non-global.
 // TODO(luca): Add option to commit memory when allocating.
+// TODO(luca): While having the arena is nice, it might be nicer to be able to
+// simply use our own memory and not have to rely on an allocator. This would
+// make the library more flexible for other users that may not want to rely on
+// our allocator and instead manage their own memory.
 
-static arena_t g_arena;
-
-void arena_init(size_t size) {
+void arena_init(arena_t* arena, size_t size) {
   void* data = calloc(size, 1);
 
   if (data) {
-    g_arena.size = size;
-    g_arena.index = 0;
-    g_arena.data = data;
+    arena->size = size;
+    arena->index = 0;
+    arena->data = data;
   }
 }
 
-void* arena_alloc(size_t size) {
-  size_t alligned_size = size + (sizeof(uint64_t) - size % sizeof(uint64_t));
-  assert(alligned_size % sizeof(uint64_t) == 0);
+void* arena_alloc(arena_t* arena, size_t size) {
+  size_t alligned_size = size + (sizeof(size_t) - size % sizeof(size_t));
+  assert(alligned_size % sizeof(size_t) == 0);
 
-  // TODO(luca): Add boundary bytes for safety.
-  if (g_arena.index + alligned_size > g_arena.size) {
-    LOG_AND_ASSERT("Not enough memory.");
+  if (arena->index + alligned_size > arena->size) {
     return NULL;
   }
 
-  char* data = ((char*)(g_arena.data))[g_arena.index];
-  g_arena.index += alligned_size;
+  void* data = arena->data + arena->index;
+  arena->index += alligned_size;
 
-  return data;
+  void* memory = malloc(size);
+  return memory;
 }
 
-void arena_free() {
-  free(g_arena.data); 
+void arena_free(arena_t* arena) {
+  free(arena->data); 
 }
 
 #endif // ARENA_H

@@ -16,15 +16,15 @@ typedef struct {
 // TODO(luca): Add get_dir_exists
 // TODO(luca): Pass our own memory to file_list_create_from_dir
 
-file_list_t* file_list_create_from_dir(char* dir_path) {
+file_list_t* file_list_create_from_dir(arena_t* arena, char* dir_path) {
   size_t dir_path_len = strlen(dir_path);
   DIR* dir = opendir(dir_path);
   CHECK_GOTO(dir, error, "Couldn't allocate memory.");
 
-  file_list_t* list = arena_alloc(sizeof(file_list_t));
+  file_list_t* list = arena_alloc(arena, sizeof(file_list_t));
   CHECK_GOTO(list, error, "Couldn't allocate memory.");
 
-  list->paths = arena_alloc(MAX_FILE_PATH_COUNT * sizeof(char*));
+  list->paths = arena_alloc(arena, MAX_FILE_PATH_COUNT * sizeof(char*));
   CHECK_GOTO(list->paths, error, "Couldn't allocate memory.");
 
   list->capacity = MAX_FILE_PATH_COUNT;
@@ -39,7 +39,7 @@ file_list_t* file_list_create_from_dir(char* dir_path) {
     size_t entry_len = strlen(entry->d_name);
     size_t len = dir_path_len + entry_len + 1;
 
-    list->paths[list->count] = arena_alloc(len);
+    list->paths[list->count] = arena_alloc(arena, len);
     CHECK_GOTO(list->paths[list->count], error, "Couldn't allocate memory.");
 
     size_t cpy_count = strlcat(list->paths[list->count], dir_path, len);

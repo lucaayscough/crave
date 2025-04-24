@@ -38,9 +38,11 @@ static tensor_t* decoder_net_19_aligned_branches_0_net_1_weight;
 static tensor_t* decoder_net_19_aligned_branches_0_net_3_weight;
 static tensor_t* net_20_alpha;
 static tensor_t* net_21_weight;
+static tensor_t* mask;
+static tensor_t* skip;
 
-void load_weights() {
-  tensor_list_t* list = tensor_load_from_blob("weights.bin");
+void load_weights(arena_t* arena) {
+  tensor_list_t* list = tensor_load_from_blob(arena, "weights.bin");
 
   noise = tensor_find_in_list(list, "pre_process_latent_noise");
   latent_pca = tensor_find_in_list(list, "pre_process_latent_latent_pca");
@@ -79,22 +81,8 @@ void load_weights() {
   decoder_net_19_aligned_branches_0_net_3_weight = tensor_find_in_list(list, "decoder.net.19.aligned.branches.0.net.3.weight");
   net_20_alpha = tensor_find_in_list(list, "decoder.net.20.alpha");
   net_21_weight = tensor_find_in_list(list, "decoder.net.21.weight");
-}
-
-void pre_process_latent(tensor_t* z) {
-  tensor_transpose(latent_pca, 0, 1);
-  tensor_unsqueeze(latent_pca, latent_pca->rank);
-  tensor_cat(z, noise, 1);
-  tensor_conv1d(z, latent_pca, 1, 1);
-
-  tensor_unsqueeze(latent_mean, 0);
-  tensor_unsqueeze(latent_mean, latent_mean->rank);
-  tensor_tadd(z, latent_mean);
-}
-
-void post_process_latent(tensor_t* z) {
-  tensor_reshape(z, U32_TPL(1, 16, 128)); 
-  tensor_t* mask = tensor_create(U32_TPL(1, 16, 128), 16 * 128);
+  skip = tensor_create(arena, U32_TPL(1), 2 * 1024);
+  mask = tensor_create(arena, U32_TPL(1, 16, 128), TENSOR_AUTO_CAP);
   tensor_fill(mask, 1.f);
 
   size_t channels = mask->dims[1];
@@ -107,9 +95,22 @@ void post_process_latent(tensor_t* z) {
     }
   }
 
+  tensor_unsqueeze(latent_pca, latent_pca->rank);
+  tensor_unsqueeze(latent_mean, 0);
+  tensor_unsqueeze(latent_mean, latent_mean->rank);
+}
+
+void pre_process_latent(tensor_t* z) {
+  tensor_transpose(latent_pca, 0, 1);
+  tensor_cat(z, noise, 1);
+  tensor_conv1d(z, latent_pca, 1, 1);
+  tensor_tadd(z, latent_mean);
+}
+
+void post_process_latent(tensor_t* z) {
+  tensor_reshape(z, U32_TPL(1, 16, 128)); 
   tensor_tmul(z, mask);
   tensor_pad(z, 32);
-
   tensor_conv1d(z, pqmf_inverse_conv_weight, 1, 1);
   tensor_mul(z, 16);
   tensor_flip(z, 1);
@@ -120,7 +121,6 @@ void post_process_latent(tensor_t* z) {
 }
 
 void decode(tensor_t* z) {
-  tensor_t* skip = tensor_create(U32_TPL(1), 1024 * 1024);
   pre_process_latent(z);
 
   // (0)

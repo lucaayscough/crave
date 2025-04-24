@@ -1,6 +1,8 @@
 #include "crave.h"
 
-// TODO(luca): Add output bin
+// TODO(luca): Add output bin.
+// TODO(luca): This was written in a hurry.
+// TODO(luca): Validate that each binary is a valid tensor.
 int main(int argc, char* argv[]) {
   if (argc > 2) {
     fprintf(stderr, "Error: -h for help.\n"); 
@@ -19,14 +21,15 @@ int main(int argc, char* argv[]) {
     printf("\n");
     return 0;
   } else {
-    arena_init(MB);
+    arena_t arena = {};
+    arena_init(&arena, MB);
     void* memory = malloc(GB);
 
-    file_list_t* list = file_list_create_from_dir(argv[1]);
+    file_list_t* list = file_list_create_from_dir(&arena, argv[1]);
     if (list == NULL) {
       fprintf(stderr, "Error creating file list.\n");  
       free(memory);
-      arena_free();
+      arena_free(&arena);
       exit(1);
     }
 
@@ -35,22 +38,27 @@ int main(int argc, char* argv[]) {
       fprintf(stderr, "Error creating weights bin.\n");  
       fclose(bin);
       free(memory);
-      arena_free();
+      arena_free(&arena);
       exit(1);
     }
 
+    int skipped = 0;
     uint32_t count = list->count;
-    size_t written = fwrite(&count, 1, sizeof(uint32_t), bin);
-    if (written == 1) {
-      fprintf(stderr, "Error writing tensor count to file.\n");  
-      fclose(bin);
-      free(memory);
-      arena_free();
-      exit(1);
-    }
+
+    fseek(bin, sizeof(uint32_t), 0);
 
     for (int i = 0; i < list->count; ++i) {
+      // TODO(luca): Exit if path is invalid.
       char* path = list->paths[i];
+      assert(path != NULL);
+
+      int path_len = strlen(path);
+      if (strcmp(path + path_len - 4, ".bin") != 0) {
+        ++skipped;
+        continue;
+      }
+
+      printf("Packing: %s\n", path);
 
       FILE* file = fopen(path, "rb");
       if (file == NULL) {
@@ -58,7 +66,7 @@ int main(int argc, char* argv[]) {
         fclose(bin);
         fclose(file);
         free(memory);
-        arena_free();
+        arena_free(&arena);
         exit(1);
       }
 
@@ -71,7 +79,7 @@ int main(int argc, char* argv[]) {
         fclose(bin);
         fclose(file);
         free(memory);
-        arena_free();
+        arena_free(&arena);
         exit(1);
       }
 
@@ -81,14 +89,25 @@ int main(int argc, char* argv[]) {
         fclose(bin);
         fclose(file);
         free(memory);
-        arena_free();
+        arena_free(&arena);
         exit(1);
       }
 
       fclose(file);
     }
+
+    rewind(bin);
+    count -= skipped;
+    size_t written = fwrite(&count, sizeof(uint32_t), 1, bin);
+    if (written != 1) {
+      fprintf(stderr, "Error writing tensor count to file.\n");  
+      fclose(bin);
+      free(memory);
+      arena_free(&arena);
+      exit(1);
+    }
     
-    arena_free();
+    arena_free(&arena);
     fclose(bin);
     free(memory);
   }

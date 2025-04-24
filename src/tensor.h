@@ -27,11 +27,11 @@ typedef struct {
 
 static void tensor_validate(tensor_t* tensor);
 static void tensor_get_strides(tensor_t* tensor, size_t* strides);
-static tensor_t* tensor_create(uint32_t* dims, uint32_t rank, uint32_t capacity);
+static tensor_t* tensor_create(arena_t* arena, uint32_t* dims, uint32_t rank, uint32_t capacity);
 static tensor_t* tensor_find_in_list(tensor_list_t* list, char* name);
-static tensor_list_t* tensor_load_from_blob(char* path);
-static tensor_t* tensor_load_from_stream(FILE* file, uint32_t min_capacity);
-static tensor_t* tensor_load_from_file(char* path, uint32_t min_capacity);
+static tensor_list_t* tensor_load_from_blob(arena_t* arena, char* path);
+static tensor_t* tensor_load_from_stream(arena_t* arena, FILE* file, uint32_t min_capacity);
+static tensor_t* tensor_load_from_file(arena_t* arena, char* path, uint32_t min_capacity);
 static void tensor_save_to_file(tensor_t* tensor, char* path);
 static void tensor_fill(tensor_t* restrict tensor, float val);
 static void tensor_mul(tensor_t* restrict tensor, float mul);
@@ -42,6 +42,7 @@ static void tensor_cat(tensor_t* restrict dest, tensor_t* restrict src, uint32_t
 static void tensor_pad(tensor_t* restrict tensor, size_t left_pad);
 static void tensor_trunc(tensor_t* restrict tensor, uint32_t left_trunc, uint32_t right_trunc);
 static void tensor_copy(tensor_t* restrict dest, tensor_t* restrict src);
+static void tensor_squeeze(tensor_t* restrict tensor, uint32_t dim);
 static void tensor_unsqueeze(tensor_t* restrict tensor, uint32_t dim);
 static void tensor_transpose(tensor_t* restrict tensor, uint32_t dim1, uint32_t dim2);
 static void tensor_permute(tensor_t* restrict tensor, uint32_t* restrict dims, uint32_t rank);
@@ -64,14 +65,14 @@ static void tensor_print_data(tensor_t* restrict tensor);
 static void tensor_print(tensor_t* restrict tensor);
 
 void tensor_validate(tensor_t* tensor) {
-  assert(tensor != NULL);
-  assert(tensor->data != NULL);
-  assert(tensor->swap != NULL);
-  assert(tensor->rank > 0);
-  assert(tensor->rank <= TENSOR_MAX_RANK);
-  assert(tensor->count <= tensor->cap);
-  assert(tensor->cap > 0);
-  assert(tensor->count > 0);
+  assert(tensor != NULL                   && "Tensor is NULL.");
+  assert(tensor->data != NULL             && "Tensor data is NULL.");
+  assert(tensor->swap != NULL             && "Tensor swap is NULL.");
+  assert(tensor->rank > 0                 && "Tensor rank is 0.");
+  assert(tensor->rank <= TENSOR_MAX_RANK  && "Tensor rank greater than TENSOR_MAX_RANK.");
+  assert(tensor->count <= tensor->cap     && "Tensor count exceeds capacity.");
+  assert(tensor->cap > 0                  && "Tensor capacity is 0.");
+  assert(tensor->count > 0                && "Tensor count is 0.");
   
   size_t count = 1;
   for (size_t i = 0; i < tensor->rank; ++i) {
@@ -96,11 +97,11 @@ void tensor_get_strides(tensor_t* tensor, size_t* strides) {
   }
 }
 
-tensor_t* tensor_create(uint32_t* dims, uint32_t rank, uint32_t capacity) {
+tensor_t* tensor_create(arena_t* arena, uint32_t* dims, uint32_t rank, uint32_t capacity) {
   assert(rank > 0);
   assert(dims != NULL);
 
-  tensor_t* tensor = arena_alloc(sizeof(tensor_t));
+  tensor_t* tensor = arena_alloc(arena, sizeof(tensor_t));
   assert(tensor);
 
   tensor->rank = rank;
@@ -120,12 +121,31 @@ tensor_t* tensor_create(uint32_t* dims, uint32_t rank, uint32_t capacity) {
     assert(tensor->count <= capacity);
   }
 
-  tensor->data = arena_alloc(tensor->cap * sizeof(float));
+  tensor->data = arena_alloc(arena, tensor->cap * sizeof(float));
   assert(tensor->data);
-  tensor->swap = arena_alloc(tensor->cap * sizeof(float));
+  tensor->swap = arena_alloc(arena, tensor->cap * sizeof(float));
   assert(tensor->swap);
 
   return tensor;
+}
+
+void tensor_init(tensor_t* tensor, uint32_t* dims, uint32_t rank) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+    assert(dims != NULL);
+    assert(rank > 0);
+  );  
+
+  size_t count = 1;
+  for (size_t i = 0; i < rank; ++i) {
+    tensor->dims[i] = dims[i];
+    count *= dims[i];
+  }
+  
+  assert(count <= tensor->cap);
+
+  tensor->count = count;
+  tensor->rank = rank;
 }
 
 tensor_t* tensor_find_in_list(tensor_list_t* list, char* name) {
@@ -138,7 +158,7 @@ tensor_t* tensor_find_in_list(tensor_list_t* list, char* name) {
   return NULL;
 }
 
-tensor_t* tensor_load_from_stream(FILE* file, uint32_t min_capacity) {
+tensor_t* tensor_load_from_stream(arena_t* arena, FILE* file, uint32_t min_capacity) {
   // FORMAT [name_len (uint32_t)] [name (char * name_len)]
   // [rank (uint32_t)] [dims (uint32_t * rank)]
   // [item_count (uint32_t)] [data (float * item_count)]
@@ -149,7 +169,7 @@ tensor_t* tensor_load_from_stream(FILE* file, uint32_t min_capacity) {
   int result = fread(&name_len, sizeof(uint32_t), 1, file);
   CHECK_GOTO(result == 1, error, "Error.\n");
 
-  char* name = arena_alloc(name_len);
+  char* name = arena_alloc(arena, name_len);
   result = fread(name, sizeof(char), name_len, file);
   CHECK_GOTO(result == (int)name_len, error, "Error.\n");
 
@@ -166,7 +186,7 @@ tensor_t* tensor_load_from_stream(FILE* file, uint32_t min_capacity) {
   CHECK_GOTO(result == 1, error, "Error\n");
 
   uint32_t capacity = item_count < min_capacity ? min_capacity : item_count;
-  tensor_t* tensor = tensor_create(dims, rank, capacity);
+  tensor_t* tensor = tensor_create(arena, dims, rank, capacity);
   CHECK_GOTO(tensor, error, "Failed to allocate memory for tensor.\n");
 
   result = fread(tensor->data, sizeof(float), item_count, file);
@@ -180,7 +200,7 @@ error:
   return NULL;
 }
 
-tensor_list_t* tensor_load_from_blob(char* path) {
+tensor_list_t* tensor_load_from_blob(arena_t* arena, char* path) {
   assert(path);
 
   // TODO(luca): Add file.
@@ -191,12 +211,12 @@ tensor_list_t* tensor_load_from_blob(char* path) {
   int result = fread(&count, sizeof(uint32_t), 1, file);
   CHECK_GOTO(result == 1, error, "Failed to read from file.");
 
-  tensor_list_t* list = arena_alloc(sizeof(tensor_list_t*));
-  list->tensors = arena_alloc(count * sizeof(tensor_t*));
+  tensor_list_t* list = arena_alloc(arena, sizeof(tensor_list_t*));
+  list->tensors = arena_alloc(arena, count * sizeof(tensor_t*));
   list->count = count;
 
   for (int i = 0; i < count; ++i) {
-    list->tensors[i] = tensor_load_from_stream(file, TENSOR_AUTO_CAP);
+    list->tensors[i] = tensor_load_from_stream(arena, file, TENSOR_AUTO_CAP);
   }
 
   fclose(file);
@@ -207,7 +227,7 @@ error:
   return NULL;
 }
 
-tensor_t* tensor_load_from_file(char* path, uint32_t min_capacity) {
+tensor_t* tensor_load_from_file(arena_t* arena, char* path, uint32_t min_capacity) {
   // FORMAT [name_len (uint32_t)] [name (char * name_len)]
   // [rank (uint32_t)] [dims (uint32_t * rank)]
   // [item_count (uint32_t)] [data (float * item_count)]
@@ -227,7 +247,7 @@ tensor_t* tensor_load_from_file(char* path, uint32_t min_capacity) {
   int result = fread(&name_len, sizeof(uint32_t), 1, file);
   CHECK_GOTO(result, error, "Error.\n");
 
-  char* name = arena_alloc(name_len);
+  char* name = arena_alloc(arena, name_len);
   result = fread(name, sizeof(char), name_len, file);
   CHECK_GOTO(result, error, "Error.\n");
 
@@ -244,7 +264,7 @@ tensor_t* tensor_load_from_file(char* path, uint32_t min_capacity) {
   CHECK_GOTO(result, error, "Error\n");
 
   uint32_t capacity = item_count < min_capacity ? min_capacity : item_count;
-  tensor_t* tensor = tensor_create(dims, rank, capacity);
+  tensor_t* tensor = tensor_create(arena, dims, rank, capacity);
   CHECK_GOTO(tensor, error, "Failed to allocate memory for tensor.\n");
 
   result = fread(tensor->data, sizeof(float), item_count, file);
@@ -493,6 +513,21 @@ void tensor_copy(tensor_t* restrict dest, tensor_t* restrict src) {
   dest->count = item_count;
   dest->rank = src->rank;
   dest->name = src->name;
+}
+
+void tensor_squeeze(tensor_t* restrict tensor, uint32_t dim) {
+  DO_INTERNAL(
+    tensor_validate(tensor);
+    assert(dim <= tensor->rank);
+    assert(tensor->dims[dim] == 1);
+  );
+
+  size_t rank = tensor->rank;
+  for (size_t i = dim; i < rank - 1; --i) {
+    tensor->dims[i] = tensor->dims[i + 1];
+  }
+
+  tensor->rank = rank - 1;
 }
 
 void tensor_unsqueeze(tensor_t* restrict tensor, uint32_t dim) {
