@@ -38,7 +38,7 @@ void* arena_alloc(arena_t* arena, size_t size) {
     return NULL;
   }
 
-  void* data = arena->data + arena->index;
+  char* data = (char*)arena->data + arena->index;
   arena->index += alligned_size;
 
   //void* memory = malloc(size);
