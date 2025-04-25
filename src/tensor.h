@@ -29,10 +29,11 @@ static void tensor_validate(tensor_t* tensor);
 static void tensor_get_strides(tensor_t* tensor, size_t* strides);
 static tensor_t* tensor_create(arena_t* arena, uint32_t* dims, uint32_t rank, uint32_t capacity);
 static tensor_t* tensor_find_in_list(tensor_list_t* list, const char* name);
-static tensor_list_t* tensor_load_from_blob(arena_t* arena, char* path);
-static tensor_list_t* tensor_load_from_blob(arena_t* arena, char* path);
+static tensor_list_t* tensor_load_from_memory(arena_t* arena, const void* data, size_t size);
+static tensor_list_t* tensor_load_from_blob(arena_t* arena, const char* path);
 static tensor_t* tensor_load_from_stream(arena_t* arena, FILE* file, uint32_t min_capacity);
 static tensor_t* tensor_load_from_file(arena_t* arena, char* path, uint32_t min_capacity);
+static tensor_t* tensor_load_from_memory_iterator(arena_t* arena, const char** it, uint32_t min_capacity);
 static void tensor_save_to_file(tensor_t* tensor, char* path);
 static void tensor_fill(tensor_t* tensor, float val);
 static void tensor_mul(tensor_t* tensor, float mul);
@@ -211,6 +212,56 @@ tensor_t* tensor_load_from_stream(arena_t* arena, FILE* file, uint32_t min_capac
   tensor->name = name;
 
   return tensor;
+}
+
+static uint32_t read_u32_le(const char** it)
+{
+  const uint8_t* data = (const uint8_t*)*it;
+  uint32_t value = (data[0] << 0) | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+  *it += sizeof(value);
+  return value;
+}
+
+static void read_array(const char** it, void* data, size_t bytes)
+{
+  memcpy(data, *it, bytes);
+  *it += bytes;
+}
+
+tensor_t* tensor_load_from_memory_iterator(arena_t* arena, const char** it, uint32_t min_capacity)
+{
+  uint32_t name_len = read_u32_le(it);
+  char* name = (char*)arena_alloc(arena, name_len * sizeof(char));
+  read_array(it, name, name_len * sizeof(*name));
+
+  uint32_t rank = read_u32_le(it);
+  uint32_t dims[TENSOR_MAX_RANK];
+  read_array(it, dims, rank * sizeof(dims[0]));
+
+  uint32_t item_count = read_u32_le(it);
+
+  uint32_t capacity = item_count < min_capacity ? min_capacity : item_count;
+  tensor_t* tensor = tensor_create(arena, dims, rank, capacity);
+  read_array(it, tensor->data, item_count * sizeof(*tensor->data));
+
+  tensor->name = name;
+
+  return tensor;
+}
+
+tensor_list_t* tensor_load_from_memory(arena_t* arena, const void* data, size_t size) {
+  const char* it = (const char*)data;
+
+  uint32_t count = read_u32_le(&it);
+  tensor_list_t* list = (tensor_list_t*)arena_alloc(arena, sizeof(tensor_list_t*));
+  list->tensors = (tensor_t**)arena_alloc(arena, count * sizeof(tensor_t*));
+  list->count = count;
+
+  for (int i = 0; i < count; ++i) {
+    list->tensors[i] = tensor_load_from_memory_iterator(arena, &it, TENSOR_AUTO_CAP);
+  }
+
+  return list;
 }
 
 tensor_list_t* tensor_load_from_blob(arena_t* arena, const char* path) {

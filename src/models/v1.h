@@ -43,9 +43,7 @@ typedef struct {
   tensor_t* skip;
 } v1_model_weights_t;
 
-void load_weights(arena_t* arena, v1_model_weights_t* weights) {
-  tensor_list_t* list = tensor_load_from_blob(arena, "weights.bin");
-
+void load_weights(arena_t* arena, v1_model_weights_t* weights, tensor_list_t* list) {
   weights->noise = tensor_find_in_list(list, "pre_process_latent_noise");
   weights->latent_pca = tensor_find_in_list(list, "pre_process_latent_latent_pca");
   weights->latent_mean = tensor_find_in_list(list, "pre_process_latent_latent_mean");

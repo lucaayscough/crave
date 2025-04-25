@@ -6,7 +6,8 @@ int main(int argc, char* argv[]) {
   arena_init(&arena, 5 * MB);
 
   v1_model_weights_t weights = {};
-  load_weights(&arena, &weights);
+  tensor_list_t* list = tensor_load_from_blob(&arena, "weights.bin");
+  load_weights(&arena, &weights, list);
 
   clock_t start = clock();
 
