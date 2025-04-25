@@ -19,13 +19,21 @@ typedef struct {
 file_list_t* file_list_create_from_dir(arena_t* arena, char* dir_path) {
   size_t dir_path_len = strlen(dir_path);
   DIR* dir = opendir(dir_path);
-  CHECK_GOTO(dir, error, "Couldn't allocate memory.");
+  if (dir == NULL) {
+    return NULL;
+  }
 
-  file_list_t* list = arena_alloc(arena, sizeof(file_list_t));
-  CHECK_GOTO(list, error, "Couldn't allocate memory.");
+  file_list_t* list = (file_list_t*)arena_alloc(arena, sizeof(file_list_t));
+  if (list == NULL) {
+    closedir(dir);
+    return NULL;
+  }
 
-  list->paths = arena_alloc(arena, MAX_FILE_PATH_COUNT * sizeof(char*));
-  CHECK_GOTO(list->paths, error, "Couldn't allocate memory.");
+  list->paths = (char**)arena_alloc(arena, MAX_FILE_PATH_COUNT * sizeof(char*));
+  if (list->paths == NULL) {
+    closedir(dir);
+    return NULL;
+  }
 
   list->capacity = MAX_FILE_PATH_COUNT;
   list->count = 0;
@@ -39,14 +47,23 @@ file_list_t* file_list_create_from_dir(arena_t* arena, char* dir_path) {
     size_t entry_len = strlen(entry->d_name);
     size_t len = dir_path_len + entry_len + 1;
 
-    list->paths[list->count] = arena_alloc(arena, len);
-    CHECK_GOTO(list->paths[list->count], error, "Couldn't allocate memory.");
+    list->paths[list->count] = (char*)arena_alloc(arena, len);
+    if (list->paths[list->count] == NULL) {
+      closedir(dir);
+      return NULL;
+    }
 
     size_t cpy_count = strlcat(list->paths[list->count], dir_path, len);
-    CHECK_GOTO(cpy_count == dir_path_len, error, "Failed to copy string.");
+    if (cpy_count != dir_path_len) {
+      closedir(dir);
+      return NULL;
+    }
 
     cpy_count = strlcat(list->paths[list->count], entry->d_name, len); 
-    CHECK_GOTO(cpy_count == len - 1, error, "Failed to copy string.");
+    if (cpy_count != len - 1) {
+      closedir(dir);
+      return NULL;
+    }
 
     ++list->count;
     
@@ -57,12 +74,7 @@ file_list_t* file_list_create_from_dir(arena_t* arena, char* dir_path) {
   }
 
   closedir(dir);
-
   return list; 
-   
-error:
-  closedir(dir);
-  return NULL;
 }
 
 off_t get_file_size(FILE* file) {

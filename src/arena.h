@@ -43,7 +43,7 @@ void* arena_alloc(arena_t* arena, size_t size) {
 
   //void* memory = malloc(size);
   //return memory;
-  return data;
+  return (void*)data;
 }
 
 void arena_free(arena_t* arena) {

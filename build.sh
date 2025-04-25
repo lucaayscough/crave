@@ -9,9 +9,9 @@ if [ -n "$BUILD_UTILS" ] && [ "$BUILD_UTILS" -eq 1 ]; then
 fi
 
 if [ -n "$FAST" ] && [ "$FAST" -eq 1 ]; then
-  clang -g -O3 $COMPILER_FLAGS src/main.c -o out/main
+  clang++ -g -O3 $COMPILER_FLAGS src/main.c++ -o out/main
 else
-  clang -g -O0 -D INTERNAL $COMPILER_FLAGS  src/main.c -o out/main
+  clang++ -g -O0 -D INTERNAL $COMPILER_FLAGS src/main.cpp -o out/main
 fi
 
 if [ $? -eq 0 ]; then

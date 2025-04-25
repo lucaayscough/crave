@@ -5,7 +5,8 @@ int main(int argc, char* argv[]) {
   arena_t arena = {};
   arena_init(&arena, 5 * MB);
 
-  load_weights(&arena);
+  v1_model_weights_t weights = {};
+  load_weights(&arena, &weights);
 
   clock_t start = clock();
 
@@ -19,7 +20,7 @@ int main(int argc, char* argv[]) {
     z->data[2] = 0.3f;
     z->data[3] = 0.4f;
 
-    decode(z);
+    decode(z, &weights);
   }
 
   print_runtime_ms(start);
