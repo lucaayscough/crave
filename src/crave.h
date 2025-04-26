@@ -52,7 +52,7 @@ static tensor_t* tensor_create(arena_t* arena, uint32_t* dims, uint32_t rank, ui
 static tensor_t* tensor_find_in_list(tensor_list_t* list, const char* name);
 static tensor_list_t* tensor_load_from_blob(arena_t* arena, const char* path);
 static tensor_t* tensor_load_from_stream(arena_t* arena, FILE* file, uint32_t min_capacity);
-static tensor_t* tensor_load_from_file(arena_t* arena, char* path, uint32_t min_capacity);
+static tensor_t* tensor_load_from_file(arena_t* arena, const char* path, uint32_t min_capacity);
 static void tensor_save_to_file(tensor_t* tensor, char* path);
 static void tensor_fill(tensor_t* tensor, float val);
 static void tensor_mul(tensor_t* tensor, float mul);
@@ -338,7 +338,7 @@ tensor_list_t* tensor_load_from_blob(arena_t* arena, const char* path) {
   return list;
 }
 
-tensor_t* tensor_load_from_file(arena_t* arena, char* path, uint32_t min_capacity) {
+tensor_t* tensor_load_from_file(arena_t* arena, const char* path, uint32_t min_capacity) {
   // FORMAT [name_len (uint32_t)] [name (char * name_len)]
   // [rank (uint32_t)] [dims (uint32_t * rank)]
   // [item_count (uint32_t)] [data (float * item_count)]

@@ -8,6 +8,8 @@ if [ -n "$BUILD_UTILS" ] && [ "$BUILD_UTILS" -eq 1 ]; then
   clang -g -O0 src/pack.c -o out/pack
 fi
 
+clang++ src/main.c $COMPILER_FLAGS -Wno-deprecated -o out/__cpp_test
+
 if [ -n "$FAST" ] && [ "$FAST" -eq 1 ]; then
   clang -g -O3 $COMPILER_FLAGS src/main.c -o out/main
 else
