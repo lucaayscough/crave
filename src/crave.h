@@ -18,13 +18,17 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdint.h>
-#include <omp.h>
 
 #define CRV_MAX_RANK 6
 #define CRV_FRONT 0
 #define CRV_BACK 1
 #define CRV_MAX (1ULL << 48)
-#define CRV_API [[maybe_unused]] static
+#if __clang__
+#define CRV_MAYBE_UNUSED __attribute__((unused))
+#else
+#define CRV_MAYBE_UNUSED [[maybe_unused]]
+#endif
+#define CRV_API CRV_MAYBE_UNUSED static
 
 #ifdef __cplusplus
 extern "C" {
