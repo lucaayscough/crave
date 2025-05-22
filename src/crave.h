@@ -1,6 +1,11 @@
 #ifndef CRAVE_H
 #define CRAVE_H
 
+// TODO(luca): Add model implementation tests.
+// TODO(luca): Add CRV_H tests.
+// TODO(luca): Add model config id.
+// TODO(luca): Rename from v2 to unique id.
+// TODO(luca): Add crave prefix (maybe crv)
 // TODO(luca): Add allocation boundaries to validate memory writes.
 // TODO(luca): Allocate memory normally to validate memory writes.
 // TODO(luca): Use base pointer.
@@ -13,8 +18,13 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdint.h>
+#include <omp.h>
 
-#define TENSOR_MAX_RANK 6
+#define CRV_MAX_RANK 6
+#define CRV_FRONT 0
+#define CRV_BACK 1
+#define CRV_MAX (1ULL << 48)
+#define CRV_API [[maybe_unused]] static
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,7 +41,7 @@ typedef struct {
   uint32_t cap;
   uint32_t count;
   uint32_t rank;
-  uint32_t dims[TENSOR_MAX_RANK];
+  uint32_t dims[CRV_MAX_RANK];
   float* data;
   float* swap;
   char* name;
@@ -42,48 +52,62 @@ typedef struct {
   size_t count;
 } tensor_list_t;
 
-static void arena_init(arena_t* arena, size_t size);
-static void* arena_alloc(arena_t* arena, size_t size);
-static void arena_free(arena_t* arena);
-static void print_runtime_ms(clock_t start);
-static void tensor_validate(tensor_t* tensor);
-static void tensor_get_strides(tensor_t* tensor, size_t* strides);
-static tensor_t* tensor_create(arena_t* arena, uint32_t* dims, uint32_t rank, uint32_t capacity);
-static tensor_t* tensor_find_in_list(tensor_list_t* list, const char* name);
-static tensor_list_t* tensor_load_from_blob(arena_t* arena, const char* path);
-static tensor_t* tensor_load_from_stream(arena_t* arena, FILE* file, uint32_t min_capacity);
-static tensor_t* tensor_load_from_file(arena_t* arena, const char* path, uint32_t min_capacity);
-static void tensor_save_to_file(tensor_t* tensor, char* path);
-static void tensor_fill(tensor_t* tensor, float val);
-static void tensor_mul(tensor_t* tensor, float mul);
-static void tensor_add(tensor_t* tensor, float add);
-static void tensor_tadd(tensor_t* dest, tensor_t* src);
-static void tensor_arange(tensor_t* tensor, float start, float step);
-static void tensor_cat(tensor_t* dest, tensor_t* src, uint32_t dim);
-static void tensor_pad(tensor_t* tensor, size_t left_pad);
-static void tensor_trunc(tensor_t* tensor, uint32_t left_trunc, uint32_t right_trunc);
-static void tensor_copy(tensor_t* dest, tensor_t* src);
-static void tensor_squeeze(tensor_t* tensor, uint32_t dim);
-static void tensor_unsqueeze(tensor_t* tensor, uint32_t dim);
-static void tensor_transpose(tensor_t* tensor, uint32_t dim1, uint32_t dim2);
-static void tensor_permute(tensor_t* tensor, uint32_t* dims, uint32_t rank);
-static void tensor_flip(tensor_t* tensor, uint32_t dim);
-static void tensor_snake(tensor_t* tensor, tensor_t* alpha);
-static void tensor_leaky_relu(tensor_t* tensor, float alpha);
-static void tensor_sigmoid(tensor_t* tensor);
-static void tensor_tanh(tensor_t* tensor);
-static void tensor_tmul(tensor_t* a, tensor_t* b);
-static void tensor_split(tensor_t* dest, tensor_t* src);
-static void tensor_reshape(tensor_t* tensor, uint32_t* dims, uint32_t rank);
-static void tensor_conv1d(tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilation);
-static void tensor_conv_transpose1d(tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilation);
-static float tensor_l1_norm(tensor_t* a, tensor_t* b);
-static float tensor_mae(tensor_t* a, tensor_t* b);
-static float tensor_maxae(tensor_t* a, tensor_t* b);
-static void tensor_print_error_stats(tensor_t* a, tensor_t* b);
-static void tensor_print_shape(tensor_t* tensor);
-static void tensor_print_data(tensor_t* tensor);
-static void tensor_print(tensor_t* tensor);
+CRV_API void arena_init(arena_t* arena, size_t size);
+CRV_API void* arena_alloc(arena_t* arena, size_t size);
+CRV_API void arena_free(arena_t* arena);
+
+CRV_API inline void crv_randn(float* output);
+
+CRV_API inline void print_runtime_ms(clock_t start);
+CRV_API inline void print_avg_runtime_ms(clock_t start, uint32_t iters);
+
+CRV_API inline void    crv_validate_tensor             (tensor_t* input);
+CRV_API inline void    crv_get_tensor_strides          (tensor_t* input, size_t* strides);
+CRV_API inline size_t  crv_get_tensor_last_dim_index   (tensor_t* input);
+CRV_API inline size_t  crv_get_tensor_last_dim_size    (tensor_t* input);
+
+CRV_API tensor_t* tensor_create(arena_t* arena, uint32_t* dims, uint32_t rank, uint32_t capacity);
+CRV_API tensor_t* tensor_find_in_list(tensor_list_t* list, const char* name);
+CRV_API tensor_list_t* tensor_load_from_blob(arena_t* arena, const char* path);
+CRV_API tensor_t* tensor_load_from_stream(arena_t* arena, FILE* file, uint32_t min_capacity);
+CRV_API tensor_t* tensor_load_from_file(arena_t* arena, const char* path, uint32_t min_capacity);
+CRV_API void tensor_save_to_file(tensor_t* tensor, char* path);
+CRV_API void tensor_fill(tensor_t* tensor, float val);
+CRV_API void tensor_hann(tensor_t* input);
+CRV_API void tensor_mul(tensor_t* tensor, float mul);
+CRV_API void tensor_add(tensor_t* tensor, float add);
+CRV_API void tensor_tadd(tensor_t* dest, tensor_t* src);
+CRV_API void tensor_pow(tensor_t* tensor, float pow);
+CRV_API void tensor_arange(tensor_t* tensor, float start, float step);
+CRV_API void tensor_cat(tensor_t* dest, tensor_t* src, uint32_t dim, int32_t direction);
+CRV_API void tensor_pad(tensor_t* tensor, size_t left_pad, size_t right_pad);
+CRV_API void tensor_trunc(tensor_t* tensor, uint32_t left_trunc, uint32_t right_trunc);
+CRV_API void tensor_roll(tensor_t* input, int32_t shifts, size_t dim);
+CRV_API void tensor_copy(tensor_t* dest, tensor_t* src);
+CRV_API void tensor_squeeze(tensor_t* tensor, uint32_t dim);
+CRV_API void tensor_unsqueeze(tensor_t* tensor, uint32_t dim);
+CRV_API void tensor_transpose(tensor_t* tensor, uint32_t dim1, uint32_t dim2);
+CRV_API void tensor_permute(tensor_t* tensor, uint32_t* dims, uint32_t rank);
+CRV_API void tensor_flip(tensor_t* tensor, uint32_t dim);
+CRV_API void tensor_snake(tensor_t* tensor, tensor_t* alpha);
+CRV_API void tensor_leaky_relu(tensor_t* tensor, float alpha);
+CRV_API void tensor_sigmoid(tensor_t* tensor);
+CRV_API void tensor_tanh(tensor_t* tensor);
+CRV_API void tensor_tmul(tensor_t* dest, tensor_t* src);
+CRV_API void tensor_tmul_last_dim(tensor_t* dest, tensor_t* src);
+CRV_API void tensor_split(tensor_t* dest, tensor_t* src);
+CRV_API void tensor_reshape(tensor_t* tensor, uint32_t* dims, uint32_t rank);
+CRV_API void tensor_conv1d(tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilation);
+CRV_API void tensor_conv_transpose1d(tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilation);
+CRV_API void tensor_rfft(tensor_t* input);
+CRV_API void tensor_irfft(tensor_t* input);
+CRV_API float tensor_l1_norm(tensor_t* a, tensor_t* b);
+CRV_API float tensor_mae(tensor_t* a, tensor_t* b);
+CRV_API float tensor_maxae(tensor_t* a, tensor_t* b);
+CRV_API void tensor_print_error_stats(tensor_t* a, tensor_t* b);
+CRV_API void tensor_print_shape(tensor_t* tensor);
+CRV_API void tensor_print_data(tensor_t* tensor);
+CRV_API void tensor_print(tensor_t* tensor);
 
 #ifdef __cplusplus
 } // extern "C"
@@ -100,6 +124,7 @@ static void tensor_print(tensor_t* tensor);
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+//#include <Accelerate/Accelerate.h>
 
 #define LOG_D(...) printf("[DEBUG] "); printf(__VA_ARGS__)
 #define LOG_T(...) printf("[TRACE] "); printf(__VA_ARGS__)
@@ -173,25 +198,45 @@ void print_runtime_ms(clock_t start) {
   printf("Runtime: %.4fms\n", runtime);
 }
 
-void tensor_validate(tensor_t* tensor) {
-  assert(tensor != NULL                   && "Tensor is NULL.");
-  assert(tensor->data != NULL             && "Tensor data is NULL.");
-  assert(tensor->swap != NULL             && "Tensor swap is NULL.");
-  assert(tensor->rank > 0                 && "Tensor rank is 0.");
-  assert(tensor->rank <= TENSOR_MAX_RANK  && "Tensor rank greater than TENSOR_MAX_RANK.");
-  assert(tensor->count <= tensor->cap     && "Tensor count exceeds capacity.");
-  assert(tensor->cap > 0                  && "Tensor capacity is 0.");
-  assert(tensor->count > 0                && "Tensor count is 0.");
-  size_t count = 1;
-  for (size_t i = 0; i < tensor->rank; ++i) {
-    count *= tensor->dims[i];
-  }
-  assert(count == tensor->count);
+void print_avg_runtime_ms(clock_t start, uint32_t iters) {
+  clock_t end = clock();
+  double runtime = (double)(end - start) / CLOCKS_PER_SEC * 1000.0;
+  printf("Average runtime: %.4fms\n", runtime / (double)iters);
 }
 
-void tensor_get_strides(tensor_t* tensor, size_t* strides) {
+void crv_randn(float* output) {
+  float u1 = ((float)rand() + 1.f) / ((float)RAND_MAX + 1.f);
+  float u2 = ((float)rand() + 1.f) / ((float)RAND_MAX + 1.f);
+  float radius = sqrtf(-2.f * logf(u1));
+  float theta = 2.f * M_PI * u2;
+
+  output[0] = radius * cosf(theta);
+  output[1] = radius * sinf(theta);
+}
+
+#ifdef INTERNAL
+void crv_validate_tensor(tensor_t* input) {
+  assert(input != NULL);
+  assert(input->data != NULL);
+  assert(input->swap != NULL);
+  assert(input->rank > 0);
+  assert(input->rank <= CRV_MAX_RANK);
+  assert(input->count > 0);
+  assert(input->count <= input->cap);
+  assert(input->cap > 0);
+
+  size_t count = 1;
+  for (size_t i = 0; i < input->rank; ++i) {
+    count *= input->dims[i];
+  }
+
+  assert(count == input->count);
+}
+#endif
+
+void crv_get_tensor_strides(tensor_t* tensor, size_t* strides) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
     assert(strides != NULL);
   );
   size_t rank = tensor->rank;
@@ -200,6 +245,22 @@ void tensor_get_strides(tensor_t* tensor, size_t* strides) {
   for (size_t i = rank - 1; i > 0; --i) {
     strides[i - 1] = strides[i] * dims[i]; 
   }
+}
+
+size_t crv_get_tensor_last_dim_index(tensor_t* input) {
+  DO_INTERNAL(
+    crv_validate_tensor(input);
+  );
+
+  return input->rank - 1;
+}
+
+size_t crv_get_tensor_last_dim_size(tensor_t* input) {
+  DO_INTERNAL(
+    crv_validate_tensor(input);
+  );
+
+  return input->dims[crv_get_tensor_last_dim_index(input)];
 }
 
 tensor_t* tensor_create(arena_t* arena, uint32_t* dims, uint32_t rank, uint32_t capacity) {
@@ -230,7 +291,7 @@ tensor_t* tensor_create(arena_t* arena, uint32_t* dims, uint32_t rank, uint32_t 
 
 void tensor_init(tensor_t* tensor, uint32_t* dims, uint32_t rank) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
     assert(dims != NULL);
     assert(rank > 0);
   );
@@ -282,7 +343,7 @@ tensor_t* tensor_load_from_stream(arena_t* arena, FILE* file, uint32_t min_capac
     return NULL;
   }
 
-  uint32_t dims[TENSOR_MAX_RANK];
+  uint32_t dims[CRV_MAX_RANK];
   result = fread(dims, sizeof(uint32_t), rank, file);
   if (result != (int)rank) {
     return NULL;
@@ -377,7 +438,7 @@ tensor_t* tensor_load_from_file(arena_t* arena, const char* path, uint32_t min_c
     return NULL;
   }
 
-  uint32_t dims[TENSOR_MAX_RANK];
+  uint32_t dims[CRV_MAX_RANK];
   result = fread(dims, sizeof(uint32_t), rank, file);
   if (result != rank) {
     fclose(file);
@@ -416,7 +477,7 @@ void tensor_save_to_file(tensor_t* tensor, char* path) {
   // [item_count (uint32_t)] [data (float * item_count)]
 
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
     assert(path != NULL);
   );
 
@@ -468,7 +529,7 @@ void tensor_save_to_file(tensor_t* tensor, char* path) {
 
 void tensor_fill(tensor_t* tensor, float val) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
   );
 
   for (size_t i = 0; i < tensor->count; ++i) {
@@ -476,9 +537,22 @@ void tensor_fill(tensor_t* tensor, float val) {
   }
 }
 
+void tensor_hann(tensor_t* input) {
+  DO_INTERNAL(
+    crv_validate_tensor(input);
+    assert(input->rank == 1);
+    assert(input->dims[0] > 1);
+  );
+
+  size_t N = input->dims[0];
+  for (size_t n = 0; n < N; ++n) {
+    input->data[n] = 0.5f * (1.f - cosf((2.f * (float)M_PI * (float)n) / (N - 1)));
+  }
+}
+
 void tensor_mul(tensor_t* tensor, float mul) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
   );
 
   for (uint32_t i = 0; i < tensor->count; ++i) {
@@ -486,9 +560,19 @@ void tensor_mul(tensor_t* tensor, float mul) {
   }
 }
 
+void tensor_pow(tensor_t* tensor, float pow) {
+  DO_INTERNAL(
+    crv_validate_tensor(tensor);
+  );
+
+  for (uint32_t i = 0; i < tensor->count; ++i) {
+    tensor->data[i] = powf(tensor->data[i], pow);
+  }
+}
+
 void tensor_add(tensor_t* tensor, float add) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
   );
 
   for (uint32_t i = 0; i < tensor->count; ++i) {
@@ -498,8 +582,8 @@ void tensor_add(tensor_t* tensor, float add) {
 
 void tensor_tadd(tensor_t* dest, tensor_t* src) {
   DO_INTERNAL(
-    tensor_validate(src);
-    tensor_validate(dest);
+    crv_validate_tensor(src);
+    crv_validate_tensor(dest);
     assert(src->rank == dest->rank && "Tensor rank must match.");
     assert(src->count == dest->count && "Tensor item count must match.");
   );
@@ -511,7 +595,7 @@ void tensor_tadd(tensor_t* dest, tensor_t* src) {
 
 void tensor_arange(tensor_t* tensor, float start, float step) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
   );
 
   for (size_t i = 0; i < tensor->count; ++i) {
@@ -519,12 +603,13 @@ void tensor_arange(tensor_t* tensor, float start, float step) {
   }
 }
 
-void tensor_cat(tensor_t* dest, tensor_t* src, uint32_t dim) {
+void tensor_cat(tensor_t* dest, tensor_t* src, uint32_t dim, int32_t direction) {
   DO_INTERNAL(
-    tensor_validate(src);
-    tensor_validate(dest);
+    crv_validate_tensor(src);
+    crv_validate_tensor(dest);
     assert(src->rank == dest->rank);
-    assert(dim < dest->rank && "Dimension must be smaller than rank.");
+    assert(dim < dest->rank);
+    assert(direction == CRV_FRONT || direction == CRV_BACK);
 
     for (uint32_t i = 0; i < dest->rank; ++i) {
       if (i != dim) {
@@ -534,21 +619,38 @@ void tensor_cat(tensor_t* dest, tensor_t* src, uint32_t dim) {
   );
 
   size_t rank = dest->rank;
-  size_t a_cpy_size = dest->dims[dim];
-  size_t b_cpy_size = src->dims[dim];
-
-  for (uint32_t i = dim + 1; i < rank; ++i) {
-    a_cpy_size *= dest->dims[i];
-    b_cpy_size *= src->dims[i];
-  }
-
+  size_t a_cpy_size, b_cpy_size;
   float* out = dest->swap;
-  float* a = dest->data;
-  float* b = src->data;
+  float* a;
+  float* b;
+
+  if (direction == CRV_BACK) {
+    a_cpy_size = dest->dims[dim];
+    b_cpy_size = src->dims[dim];
+
+    for (uint32_t i = dim + 1; i < rank; ++i) {
+      a_cpy_size *= dest->dims[i];
+      b_cpy_size *= src->dims[i];
+    }
+
+    a = dest->data;
+    b = src->data;
+  } else {
+    a_cpy_size = src->dims[dim];
+    b_cpy_size = dest->dims[dim];
+
+    for (uint32_t i = dim + 1; i < rank; ++i) {
+      a_cpy_size *= src->dims[i];
+      b_cpy_size *= dest->dims[i];
+    }
+
+    a = src->data;
+    b = dest->data;
+  }
 
   size_t copied_count = 0;
   size_t total_items = dest->count + src->count;
-  assert(total_items <= dest->cap && "Total number of items will exceed tensor capacity.");
+  assert(total_items <= dest->cap);
 
   size_t i = 0;
   while (copied_count < total_items) {
@@ -556,7 +658,7 @@ void tensor_cat(tensor_t* dest, tensor_t* src, uint32_t dim) {
     copied_count += a_cpy_size;
     memcpy(&out[copied_count], &b[i * b_cpy_size], sizeof(float) * b_cpy_size);
     copied_count += b_cpy_size;
-    ++i; 
+    ++i;
   }
 
   assert(copied_count == total_items);
@@ -567,50 +669,52 @@ void tensor_cat(tensor_t* dest, tensor_t* src, uint32_t dim) {
   dest->data = out;
 }
 
-void tensor_pad(tensor_t* tensor, size_t left_pad) {
-  // TODO(luca): Not a complete implementation of a tensor padding algorithm as
-  // this only does left padding.
-
+void tensor_pad(tensor_t* tensor, size_t left_pad, size_t right_pad) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
+    assert(left_pad > 0 || right_pad > 0);
   );
 
   float* x = tensor->data;
   float* y = tensor->swap;
 
   size_t rank = tensor->rank;
-  size_t item_count = tensor->dims[tensor->rank - 1];
+  size_t len = tensor->dims[tensor->rank - 1];
 
   size_t total_dims = 1;
   for (uint32_t i = 0; i < rank - 1; ++i) {
     total_dims *= tensor->dims[i];
   }
 
-  assert(total_dims * (left_pad + item_count) <= tensor->cap);
+  assert(total_dims * (left_pad + right_pad + len) <= tensor->cap);
 
   for (size_t i = 0; i < total_dims; ++i) {
     for (size_t j = 0; j < left_pad; ++j) {
-      y[i * item_count + i * left_pad + j] = 0.f;
+      y[i * (len + left_pad + right_pad) + j] = 0.f;
+    }
+
+    for (size_t j = 0; j < right_pad; ++j) {
+      y[i * (len + left_pad + right_pad) + left_pad + len + j] = 0.f;
     }
 
     memcpy(
-      &y[i * item_count + i * left_pad + left_pad],
-      &x[i * item_count],
-      item_count * sizeof(float)
+      &y[i * (len + left_pad + right_pad) + left_pad],
+      &x[i * len],
+      len * sizeof(float)
     );
   }
 
   tensor->data = y;
   tensor->swap = x;
-  tensor->count = total_dims * (item_count + left_pad);
-  tensor->dims[rank - 1] += left_pad;
+  tensor->count = total_dims * (len + left_pad + right_pad);
+  tensor->dims[rank - 1] += left_pad + right_pad;
 }
 
 void tensor_trunc(tensor_t* tensor, uint32_t left_trunc, uint32_t right_trunc) {
   // TODO(luca): Only implements left and right truncation.
 
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
     assert(!(left_trunc == 0 && right_trunc == 0) &&
       "No point in truncating if both values are zero.");
   );
@@ -639,10 +743,57 @@ void tensor_trunc(tensor_t* tensor, uint32_t left_trunc, uint32_t right_trunc) {
   tensor->count = count / x_len * y_len;
 }
 
+void tensor_roll(tensor_t* input, int32_t shift, size_t dim) {
+  DO_INTERNAL(
+    crv_validate_tensor(input);
+    assert(shift != 0);
+    assert(shift < (int32_t)input->dims[dim]);
+    assert(dim > 0);
+  );
+
+  size_t strides[CRV_MAX_RANK]; 
+  crv_get_tensor_strides(input, &strides[0]);
+
+  float* x = input->data;
+  float* y = input->swap;
+  size_t count = input->count;
+  size_t rank = input->rank;
+
+  size_t indices[CRV_MAX_RANK];
+  for (size_t i = 0; i < count; ++i) {
+    size_t tmp = i;
+    for (size_t j = 0; j < rank; ++j) {
+      indices[j] = tmp / strides[j];
+      tmp %= strides[j];
+    }
+
+    if (indices[dim] + shift < 0) {
+      indices[dim] += shift + input->dims[dim];
+    } else if (indices[dim] + shift > input->dims[dim]) {
+      indices[dim] += shift - input->dims[dim]; 
+    } else {
+      indices[dim] += shift; 
+    }
+
+    indices[dim] = ((long)indices[dim] + shift) % (long)input->dims[dim];
+
+    size_t write_index = 0;
+    for (size_t j = 0; j < rank; ++j) {
+      write_index += indices[j] * strides[j];
+    }
+
+    y[write_index] = x[i];
+  }
+
+  input->data = y;
+  input->swap = x;
+}
+
 void tensor_copy(tensor_t* dest, tensor_t* src) {
   DO_INTERNAL(
-    tensor_validate(src);
-    tensor_validate(dest);
+    crv_validate_tensor(src);
+    crv_validate_tensor(dest);
+    assert(src->count <= dest->cap);
   );
 
   size_t item_count = src->count;
@@ -663,7 +814,7 @@ void tensor_copy(tensor_t* dest, tensor_t* src) {
 
 void tensor_squeeze(tensor_t* tensor, uint32_t dim) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
     assert(dim <= tensor->rank);
     assert(tensor->dims[dim] == 1);
   );
@@ -678,7 +829,7 @@ void tensor_squeeze(tensor_t* tensor, uint32_t dim) {
 
 void tensor_unsqueeze(tensor_t* tensor, uint32_t dim) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
     assert(dim <= tensor->rank);
   );
 
@@ -693,7 +844,7 @@ void tensor_unsqueeze(tensor_t* tensor, uint32_t dim) {
 
 void tensor_transpose(tensor_t* tensor, uint32_t dim1, uint32_t dim2) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
     assert(dim1 < tensor->rank);
     assert(dim2 < tensor->rank);
   );
@@ -701,8 +852,8 @@ void tensor_transpose(tensor_t* tensor, uint32_t dim1, uint32_t dim2) {
   size_t rank = tensor->rank;
   size_t item_count = tensor->count;
 
-  size_t old_dims[TENSOR_MAX_RANK] = {};
-  size_t new_dims[TENSOR_MAX_RANK] = {};
+  size_t old_dims[CRV_MAX_RANK] = {};
+  size_t new_dims[CRV_MAX_RANK] = {};
 
   for (size_t i = 0; i < rank; ++i) {
     old_dims[i] = tensor->dims[i];
@@ -712,8 +863,8 @@ void tensor_transpose(tensor_t* tensor, uint32_t dim1, uint32_t dim2) {
   new_dims[dim1] = old_dims[dim2];
   new_dims[dim2] = old_dims[dim1];
 
-  size_t old_strides[TENSOR_MAX_RANK] = {};
-  size_t new_strides[TENSOR_MAX_RANK] = {};
+  size_t old_strides[CRV_MAX_RANK] = {};
+  size_t new_strides[CRV_MAX_RANK] = {};
 
   old_strides[rank - 1] = 1;
   new_strides[rank - 1] = 1;
@@ -726,7 +877,7 @@ void tensor_transpose(tensor_t* tensor, uint32_t dim1, uint32_t dim2) {
   float* x = tensor->data;
   float* y = tensor->swap;
 
-  size_t indices[TENSOR_MAX_RANK] = {};
+  size_t indices[CRV_MAX_RANK] = {};
 
   for (size_t i = 0; i < item_count; ++i) {
     size_t tmp = i;
@@ -756,17 +907,17 @@ void tensor_transpose(tensor_t* tensor, uint32_t dim1, uint32_t dim2) {
 
 void tensor_permute(tensor_t* tensor, uint32_t* dims, uint32_t rank) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
     assert(dims != NULL);  
     assert(rank > 0);
     assert(tensor->rank == rank);
   );
 
-  size_t old_strides[TENSOR_MAX_RANK]; 
-  size_t new_strides[TENSOR_MAX_RANK]; 
+  size_t old_strides[CRV_MAX_RANK]; 
+  size_t new_strides[CRV_MAX_RANK]; 
 
-  size_t old_dims[TENSOR_MAX_RANK];
-  size_t new_dims[TENSOR_MAX_RANK];
+  size_t old_dims[CRV_MAX_RANK];
+  size_t new_dims[CRV_MAX_RANK];
 
   for (size_t i = 0; i < rank; ++i) {
     old_dims[i] = tensor->dims[i];
@@ -781,8 +932,8 @@ void tensor_permute(tensor_t* tensor, uint32_t* dims, uint32_t rank) {
     new_strides[i - 1] = new_strides[i] * new_dims[i];
   }
 
-  size_t old_indices[TENSOR_MAX_RANK];
-  size_t new_indices[TENSOR_MAX_RANK];
+  size_t old_indices[CRV_MAX_RANK];
+  size_t new_indices[CRV_MAX_RANK];
   size_t count = tensor->count;
   float* x = tensor->data;
   float* y = tensor->swap;
@@ -816,17 +967,17 @@ void tensor_permute(tensor_t* tensor, uint32_t* dims, uint32_t rank) {
 
 void tensor_flip(tensor_t* tensor, uint32_t dim) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
     assert(dim < tensor->rank);
     assert(tensor->dims[dim] > 1);
   );
 
   size_t rank = tensor->rank;
-  size_t strides[TENSOR_MAX_RANK]; 
-  tensor_get_strides(tensor, &strides[0]);
+  size_t strides[CRV_MAX_RANK]; 
+  crv_get_tensor_strides(tensor, &strides[0]);
   uint32_t* dims = tensor->dims; 
 
-  size_t indices[TENSOR_MAX_RANK];
+  size_t indices[CRV_MAX_RANK];
   size_t count = tensor->count;
   float* x = tensor->data;
   float* y = tensor->swap;
@@ -854,8 +1005,8 @@ void tensor_flip(tensor_t* tensor, uint32_t dim) {
 
 void tensor_snake(tensor_t* tensor, tensor_t* alpha) {
   DO_INTERNAL(
-    tensor_validate(tensor);
-    tensor_validate(alpha);
+    crv_validate_tensor(tensor);
+    crv_validate_tensor(alpha);
     assert(tensor->rank == 3);
     assert(alpha->rank == 2);
     assert(alpha->dims[1] == 1);
@@ -883,7 +1034,7 @@ void tensor_snake(tensor_t* tensor, tensor_t* alpha) {
 
 void tensor_leaky_relu(tensor_t* tensor, float alpha) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
     assert(alpha >= 0.f && "Alpha value must be >= 0.");
   );
 
@@ -896,7 +1047,7 @@ void tensor_leaky_relu(tensor_t* tensor, float alpha) {
 
 void tensor_sigmoid(tensor_t* tensor) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
   );
 
   size_t count = tensor->count;
@@ -908,7 +1059,7 @@ void tensor_sigmoid(tensor_t* tensor) {
 
 void tensor_tanh(tensor_t* tensor) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
   );
 
   size_t count = tensor->count;
@@ -919,14 +1070,39 @@ void tensor_tanh(tensor_t* tensor) {
   }
 }
 
-void tensor_tmul(tensor_t* a, tensor_t* b) {
-  assert(a && "Tensor a is NULL.");
-  assert(b && "Tensor a is NULL.");
-  assert(a->rank == b->rank && "Tensor rank must match.");
-  assert(a->count == b->count && "Tensor item count must match.");
+void tensor_tmul(tensor_t* dest, tensor_t* src) {
+  DO_INTERNAL(
+    crv_validate_tensor(dest);
+    crv_validate_tensor(src);
+    assert(src != NULL);
+    assert(src != NULL);
+    assert(src->rank == dest->rank);
+    assert(src->count == dest->count);
+    for (size_t i = 0; i < src->rank; ++i) {
+      assert(src->dims[i] == dest->dims[i]);
+    }
+  );
 
-  for (size_t i = 0; i < a->count; ++i) {
-    a->data[i] *= b->data[i];
+  size_t count = src->count;
+  for (size_t i = 0; i < count; ++i) {
+    dest->data[i] *= src->data[i];
+  }
+}
+
+void tensor_tmul_last_dim(tensor_t* dest, tensor_t* src) {
+  DO_INTERNAL(
+    crv_validate_tensor(dest);
+    crv_validate_tensor(src);
+    assert(src != NULL);
+    assert(src != NULL);
+    assert(src->dims[src->rank - 1] == dest->dims[dest->rank - 1]);
+  );
+
+  size_t src_len = src->dims[src->rank - 1];
+  size_t dest_len = dest->dims[dest->rank - 1];
+
+  for (size_t i = 0; i < dest_len; ++i) {
+    dest->data[i] *= src->data[i % src_len];
   }
 }
 
@@ -935,8 +1111,8 @@ void tensor_split(tensor_t* dest, tensor_t* src) {
   // input shape is [1, x, x], the split dim is 1 and the size is 2.
 
   DO_INTERNAL(
-    tensor_validate(dest);
-    tensor_validate(src);
+    crv_validate_tensor(dest);
+    crv_validate_tensor(src);
     assert(src->rank == 3);
     assert(src->dims[0] == 1);
     assert(src->dims[1] % 2 == 0);
@@ -963,7 +1139,7 @@ void tensor_split(tensor_t* dest, tensor_t* src) {
 
 void tensor_reshape(tensor_t* tensor, uint32_t* dims, uint32_t rank) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
   );
 
   size_t count = 1;
@@ -978,8 +1154,8 @@ void tensor_reshape(tensor_t* tensor, uint32_t* dims, uint32_t rank) {
 
 void tensor_conv1d(tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilation) {
   DO_INTERNAL(
-    tensor_validate(x);
-    tensor_validate(w);
+    crv_validate_tensor(x);
+    crv_validate_tensor(w);
     assert(stride);
     assert(dilation);
     assert(x->rank == 3);
@@ -1004,23 +1180,62 @@ void tensor_conv1d(tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilation)
   float* w_data = w->data;
   float* y_data = x->swap;
 
-  x->dims[1] = out_ch;
-  x->dims[2] = y_len;
-  x->count = x->dims[0] * x->dims[1] * x->dims[2];
+#ifdef CRV_IM2COL
+  size_t strides[CRV_MAX_RANK];
+  crv_get_tensor_strides(x, strides);
 
-  assert(x->count <= x->cap);
+  size_t im2col_rows = in_ch * w_len;
+  size_t im2col_cols = y_len;
+  float* scratch = (float*)malloc(im2col_rows * im2col_cols * sizeof(float));
+  assert(scratch != NULL);
 
+  for (size_t b = 0; b < x_batches; ++b) {
+    for (size_t m = 0; m < y_len; ++m) {
+      for (size_t ic = 0; ic < in_ch; ++ic) {
+        for (size_t k = 0; k < w_len; ++k) {
+          size_t x_idx = m * stride + k * dilation;
+          size_t x_read_index = b * strides[0] + ic * strides[1] + x_idx;
+          size_t row = ic * w_len + k;
+          scratch[row * im2col_cols + m] = x_data[x_read_index];
+        }
+      }
+    }
+
+    float* y_batch = y_data + b * out_ch * y_len;
+    for (size_t i = 0; i < out_ch * y_len; ++i) {
+      y_batch[i] = 0.0f;
+    }
+
+    // NOTE(luca): ~7ms
+    //
+    //cblas_sgemm(
+    //  CblasRowMajor, CblasNoTrans, CblasNoTrans,
+    //  out_ch, y_len, im2col_rows,
+    //  1.0f, w_data, im2col_rows, scratch, y_len,
+    //  0.0f, y_batch, y_len
+    //);
+
+    // NOTE(luca): ~20ms
+    for (size_t k = 0; k < im2col_rows; ++k) {
+      for (size_t i = 0; i < out_ch; ++i) {
+        for (size_t j = 0; j < y_len; ++j) {
+          y_batch[i * y_len + j] += w_data[i * im2col_rows + k] * scratch[k * y_len + j];
+        }
+      }
+    }
+  }
+
+  free(scratch);
+#else
   for (size_t b = 0; b < x_batches; ++b) {
     for (size_t oc = 0; oc < out_ch; ++oc) {
       for (size_t m = 0; m < y_len; ++m) {
         float sum = 0;
-
         for (size_t ic = 0; ic < in_ch; ++ic) {
           for (size_t k = 0; k < w_len; ++k) {
             size_t x_idx = m * stride + k * dilation;
             size_t x_read_index = (b * in_ch * x_len) + (ic * x_len) + x_idx;
             size_t w_read_index = (oc * in_ch * w_len) + (ic * w_len) + k;
-
             sum += x_data[x_read_index] * w_data[w_read_index];
           }
         }
@@ -1030,6 +1245,11 @@ void tensor_conv1d(tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilation)
       }
     }
   }
+#endif
+  x->dims[1] = out_ch;
+  x->dims[2] = y_len;
+  x->count = x->dims[0] * x->dims[1] * x->dims[2];
+  assert(x->count <= x->cap);
 
   x->data = y_data;
   x->swap = x_data;
@@ -1037,8 +1257,8 @@ void tensor_conv1d(tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilation)
 
 void tensor_conv_transpose1d(tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilation) {
   DO_INTERNAL(
-    tensor_validate(x);
-    tensor_validate(w);
+    crv_validate_tensor(x);
+    crv_validate_tensor(w);
     assert(stride);
     assert(dilation);
     assert(x->rank == 3);
@@ -1049,7 +1269,7 @@ void tensor_conv_transpose1d(tensor_t* x, tensor_t* w, uint32_t stride, uint32_t
   size_t out_ch = w->dims[1];
   size_t w_len = w->dims[2];
 
-  size_t x_batches = x->dims[0];
+  size_t batches = x->dims[0];
   size_t x_in_ch = x->dims[1];
   size_t x_len = x->dims[2];
   assert(x_in_ch == in_ch);
@@ -1068,11 +1288,29 @@ void tensor_conv_transpose1d(tensor_t* x, tensor_t* w, uint32_t stride, uint32_t
 
   assert(x->count <= x->cap);
 
-  for (size_t i = 0; i < x->count; ++i) {
-    y_data[i] = 0;
-  }
+  memset(y_data, 0, x->count * sizeof(float));
 
-  for (size_t b = 0; b < x_batches; ++b) {
+//#ifdef CRV_IM2COL
+//  assert(batches == 1);
+//
+//  size_t rows = y_len;
+//  size_t cols = w_len;
+//  size_t N = rows * cols;
+//
+//  float* im2col = (float*)malloc(N * sizeof(float));
+//  memset(im2col, 0, N * sizeof(float));
+//    
+//  for (size_t b = 0; b < batches; ++b) {
+//    for (size_t ic = 0; ic < in_ch; ++ic) {
+//      for () {
+//
+//      }
+//    }
+//  }
+//
+//  free(im2col);
+//#else
+  for (size_t b = 0; b < batches; ++b) {
     for (size_t ic = 0; ic < x_in_ch; ++ic) {
       for (size_t i = 0; i < x_len; ++i) {
         for (size_t oc = 0; oc < out_ch; ++oc) {
@@ -1087,15 +1325,102 @@ void tensor_conv_transpose1d(tensor_t* x, tensor_t* w, uint32_t stride, uint32_t
       }
     }
   }
+//#endif
 
   x->data = y_data;
   x->swap = x_data;
 }
 
+void tensor_rfft(tensor_t* input) {
+  DO_INTERNAL(
+    crv_validate_tensor(input);
+    assert(input->rank >= 1);
+  );
+
+  size_t rank = input->rank;
+  size_t batches = 1;
+  for (size_t i = 0; i < rank - 1; ++i) {
+    batches *= input->dims[i];
+  }
+
+  float* x = input->data;
+  float* y = input->swap;
+  size_t n = input->dims[input->rank - 1];
+  size_t len = n / 2 + 1;
+  size_t count = batches * len * 2;
+  assert(count <= input->cap);
+
+  for (size_t b = 0; b < batches; ++b) {
+    for (size_t k = 0; k < len; ++k) {
+      float real = 0.f;
+      float imag = 0.f;
+
+      for (size_t t = 0; t < n; ++t) {
+        float angle = -2.f * (float)M_PI * k * t / n;
+        float val = x[b * n + t];
+        real += val * cosf(angle);
+        imag += val * sinf(angle);
+      }
+
+      y[b * len * 2 + k * 2] = real;
+      y[b * len * 2 + k * 2 + 1] = imag;
+    }
+  }
+
+  input->data = y;
+  input->swap = x;
+  input->rank = rank + 1;
+  input->dims[rank - 1] = len;
+  input->dims[rank] = 2;
+  input->count = count;
+}
+
+void tensor_irfft(tensor_t* input) {
+  DO_INTERNAL(
+    crv_validate_tensor(input);
+    assert(input->rank > 1);
+    assert(input->dims[input->rank - 1] == 2);
+  );
+
+  size_t rank = input->rank;
+  size_t batches = 1;
+  for (size_t i = 0; i < rank - 2; ++i) {
+    batches *= input->dims[i];
+  }
+
+  float* x = input->data;
+  float* y = input->swap;
+  size_t len = input->dims[input->rank - 2];
+  size_t n = 2 * (len - 1);
+  size_t count = n * batches;
+  assert(count <= input->cap);
+
+  for (size_t b = 0; b < batches; ++b) {
+    for (size_t t = 0; t < n; ++t) {
+      float sum = 0.f;
+
+      for (int k = 0; k < len; ++k) {
+        float angle = 2.f * (float)M_PI * k * t / n;
+        float r = x[b * len * 2 + k * 2];
+        float i = x[b * len * 2 + k * 2 + 1];
+        sum += r * cosf(angle) - i * sinf(angle);
+      }
+
+      y[b * n + t] = sum / n;
+    }
+  }
+
+  input->data = y;
+  input->swap = x;
+  input->rank = rank - 1;
+  input->dims[rank - 2] = n;
+  input->count = count;
+}
+
 float tensor_l1_norm(tensor_t* a, tensor_t* b) {
   DO_INTERNAL(
-    tensor_validate(a);
-    tensor_validate(b);
+    crv_validate_tensor(a);
+    crv_validate_tensor(b);
     assert(a->rank == b->rank);
     assert(a->dims[0] == b->dims[0]);
     assert(a->dims[1] == b->dims[1]);
@@ -1115,8 +1440,8 @@ float tensor_l1_norm(tensor_t* a, tensor_t* b) {
 
 float tensor_mae(tensor_t* a, tensor_t* b) {
   DO_INTERNAL(
-    tensor_validate(a);
-    tensor_validate(b);
+    crv_validate_tensor(a);
+    crv_validate_tensor(b);
     assert(a->rank == b->rank);
     assert(a->dims[0] == b->dims[0]);
     assert(a->dims[1] == b->dims[1]);
@@ -1130,8 +1455,8 @@ float tensor_mae(tensor_t* a, tensor_t* b) {
 
 float tensor_maxae(tensor_t* a, tensor_t* b) {
   DO_INTERNAL(
-    tensor_validate(a);
-    tensor_validate(b);
+    crv_validate_tensor(a);
+    crv_validate_tensor(b);
     assert(a->rank == b->rank);
     assert(a->dims[0] == b->dims[0]);
     assert(a->dims[1] == b->dims[1]);
@@ -1160,8 +1485,8 @@ float tensor_maxae(tensor_t* a, tensor_t* b) {
 
 void tensor_print_error_stats(tensor_t* a, tensor_t* b) {
   DO_INTERNAL(
-    tensor_validate(a);
-    tensor_validate(b);
+    crv_validate_tensor(a);
+    crv_validate_tensor(b);
     assert(a->rank == b->rank);
     assert(a->dims[0] == b->dims[0]);
     assert(a->dims[1] == b->dims[1]);
@@ -1180,7 +1505,7 @@ void tensor_print_error_stats(tensor_t* a, tensor_t* b) {
 
 void tensor_print_shape(tensor_t* tensor) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
   );
 
   size_t rank = tensor->rank;
@@ -1196,7 +1521,7 @@ void tensor_print_shape(tensor_t* tensor) {
 
 void tensor_print_data(tensor_t* tensor) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
   );
 
   // TODO(luca): Add nicer tensor printing.
@@ -1209,7 +1534,7 @@ void tensor_print_data(tensor_t* tensor) {
 
 void tensor_print(tensor_t* tensor) {
   DO_INTERNAL(
-    tensor_validate(tensor);
+    crv_validate_tensor(tensor);
   );
 
   tensor_print_shape(tensor);

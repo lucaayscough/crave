@@ -138,276 +138,156 @@ void v1_load_weights(arena_t* arena, v1_model_weights_t* weights) {
   }
 
   tensor_unsqueeze(weights->latent_pca, weights->latent_pca->rank);
+  tensor_transpose(weights->latent_pca, 0, 1);
   tensor_unsqueeze(weights->latent_mean, 0);
   tensor_unsqueeze(weights->latent_mean, weights->latent_mean->rank);
 }
 
 void v1_decode(tensor_t* z, v1_model_weights_t* w) {
-  tensor_transpose(w->latent_pca, 0, 1);
-  tensor_cat(z, w->noise, 1);
+  tensor_cat(z, w->noise, 1, CRV_BACK);
   tensor_conv1d(z, w->latent_pca, 1, 1);
   tensor_tadd(z, w->latent_mean);
 
   // (0)
-  tensor_pad(z, 2);
+  tensor_pad(z, 2, 0);
   tensor_conv1d(z, w->net_0_weight, 1, 1);
 
   // (1)
   tensor_snake(z, w->net_1_alpha);
 
   // (2)
-  tensor_pad(z, 1);
+  tensor_pad(z, 1, 0);
   tensor_conv_transpose1d(z, w->net_2_weight, 2, 1);
   tensor_trunc(z, 2, 2);
 
   // (3)
   tensor_copy(w->skip, z);
-
-  {
-    // (0)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (1)
-    tensor_pad(z, 2);
-    tensor_conv1d(z, w->decoder_net_3_aligned_branches_0_net_1_weight, 1, 1);
-
-    // (2)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (3)
-    tensor_conv1d(z, w->decoder_net_3_aligned_branches_0_net_3_weight, 1, 1);
-  }
-
+  tensor_leaky_relu(z, 0.2f);
+  tensor_pad(z, 2, 0);
+  tensor_conv1d(z, w->decoder_net_3_aligned_branches_0_net_1_weight, 1, 1);
+  tensor_leaky_relu(z, 0.2f);
+  tensor_conv1d(z, w->decoder_net_3_aligned_branches_0_net_3_weight, 1, 1);
   tensor_tadd(z, w->skip);
 
   // (4)
   tensor_copy(w->skip, z);
-
-  {
-    // (0)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (1)
-    tensor_pad(z, 6);
-    tensor_conv1d(z, w->decoder_net_4_aligned_branches_0_net_1_weight, 1, 3);
-
-    // (2)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (3)
-    tensor_conv1d(z, w->decoder_net_4_aligned_branches_0_net_3_weight, 1, 1);
-  }
-
+  tensor_leaky_relu(z, 0.2f);
+  tensor_pad(z, 6, 0);
+  tensor_conv1d(z, w->decoder_net_4_aligned_branches_0_net_1_weight, 1, 3);
+  tensor_leaky_relu(z, 0.2f);
+  tensor_conv1d(z, w->decoder_net_4_aligned_branches_0_net_3_weight, 1, 1);
   tensor_tadd(z, w->skip);
 
   // (5)
   tensor_snake(z, w->net_5_alpha);
 
   // (6)
-  tensor_pad(z, 1);
+  tensor_pad(z, 1, 0);
   tensor_conv_transpose1d(z, w->net_6_weight, 4, 1);
   tensor_trunc(z, 4, 4);
 
   // (7)
   tensor_copy(w->skip, z);
-
-  {
-    // (0)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (1)
-    tensor_pad(z, 2);
-    tensor_conv1d(z, w->decoder_net_7_aligned_branches_0_net_1_weight, 1, 1);
-
-    // (2)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (3)
-    tensor_conv1d(z, w->decoder_net_7_aligned_branches_0_net_3_weight, 1, 1);
-  }
-
+  tensor_leaky_relu(z, 0.2f);
+  tensor_pad(z, 2, 0);
+  tensor_conv1d(z, w->decoder_net_7_aligned_branches_0_net_1_weight, 1, 1);
+  tensor_leaky_relu(z, 0.2f);
+  tensor_conv1d(z, w->decoder_net_7_aligned_branches_0_net_3_weight, 1, 1);
   tensor_tadd(z, w->skip);
+
   // (8)
   tensor_copy(w->skip, z);
-
-  {
-    // (0)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (1)
-    tensor_pad(z, 6);
-    tensor_conv1d(z, w->decoder_net_8_aligned_branches_0_net_1_weight, 1, 3);
-
-    // (2)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (3)
-    tensor_conv1d(z, w->decoder_net_8_aligned_branches_0_net_3_weight, 1, 1);
-  }
-
+  tensor_leaky_relu(z, 0.2f);
+  tensor_pad(z, 6, 0);
+  tensor_conv1d(z, w->decoder_net_8_aligned_branches_0_net_1_weight, 1, 3);
+  tensor_leaky_relu(z, 0.2f);
+  tensor_conv1d(z, w->decoder_net_8_aligned_branches_0_net_3_weight, 1, 1);
   tensor_tadd(z, w->skip);
 
   // (9)
   tensor_copy(w->skip, z);
-
-  {
-    // (0)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (1)
-    tensor_pad(z, 18);
-    tensor_conv1d(z, w->decoder_net_9_aligned_branches_0_net_1_weight, 1, 9);
-
-    // (2)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (3)
-    tensor_conv1d(z, w->decoder_net_9_aligned_branches_0_net_3_weight, 1, 1);
-  }
-
+  tensor_leaky_relu(z, 0.2f);
+  tensor_pad(z, 18, 0);
+  tensor_conv1d(z, w->decoder_net_9_aligned_branches_0_net_1_weight, 1, 9);
+  tensor_leaky_relu(z, 0.2f);
+  tensor_conv1d(z, w->decoder_net_9_aligned_branches_0_net_3_weight, 1, 1);
   tensor_tadd(z, w->skip);
 
   // (10)
   tensor_snake(z, w->net_10_alpha);
 
   // (11)
-  tensor_pad(z, 1);
+  tensor_pad(z, 1, 0);
   tensor_conv_transpose1d(z, w->net_11_weight, 4, 1);
   tensor_trunc(z, 4, 4);
 
   // (12)
   tensor_copy(w->skip, z);
-
-  {
-    // (0)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (1)
-    tensor_pad(z, 2);
-    tensor_conv1d(z, w->decoder_net_12_aligned_branches_0_net_1_weight, 1, 1);
-
-    // (2)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (3)
-    tensor_conv1d(z, w->decoder_net_12_aligned_branches_0_net_3_weight, 1, 1);
-  }
-
+  tensor_leaky_relu(z, 0.2f);
+  tensor_pad(z, 2, 0);
+  tensor_conv1d(z, w->decoder_net_12_aligned_branches_0_net_1_weight, 1, 1);
+  tensor_leaky_relu(z, 0.2f);
+  tensor_conv1d(z, w->decoder_net_12_aligned_branches_0_net_3_weight, 1, 1);
   tensor_tadd(z, w->skip);
 
   // (13)
   tensor_copy(w->skip, z);
-
-  {
-    // (0)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (1)
-    tensor_pad(z, 6);
-    tensor_conv1d(z, w->decoder_net_13_aligned_branches_0_net_1_weight, 1, 3);
-
-    // (2)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (3)
-    tensor_conv1d(z, w->decoder_net_13_aligned_branches_0_net_3_weight, 1, 1);
-  }
-   
+  tensor_leaky_relu(z, 0.2f);
+  tensor_pad(z, 6, 0);
+  tensor_conv1d(z, w->decoder_net_13_aligned_branches_0_net_1_weight, 1, 3);
+  tensor_leaky_relu(z, 0.2f);
+  tensor_conv1d(z, w->decoder_net_13_aligned_branches_0_net_3_weight, 1, 1);
   tensor_tadd(z, w->skip);
 
   // (14)
   tensor_copy(w->skip, z);
-
-  {
-    // (0)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (1)
-    tensor_pad(z, 18);
-    tensor_conv1d(z, w->decoder_net_14_aligned_branches_0_net_1_weight, 1, 9);
-
-    // (2)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (3)
-    tensor_conv1d(z, w->decoder_net_14_aligned_branches_0_net_3_weight, 1, 1);
-  }
-   
+  tensor_leaky_relu(z, 0.2f);
+  tensor_pad(z, 18, 0);
+  tensor_conv1d(z, w->decoder_net_14_aligned_branches_0_net_1_weight, 1, 9);
+  tensor_leaky_relu(z, 0.2f);
+  tensor_conv1d(z, w->decoder_net_14_aligned_branches_0_net_3_weight, 1, 1);
   tensor_tadd(z, w->skip);
 
   // (15)
   tensor_snake(z, w->net_15_alpha);
 
   // (16)
-  tensor_pad(z, 1);
+  tensor_pad(z, 1, 0);
   tensor_conv_transpose1d(z, w->net_16_weight, 4, 1);
   tensor_trunc(z, 4, 4);
 
   // (17)
   tensor_copy(w->skip, z);
-
-  {
-    // (0)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (1)
-    tensor_pad(z, 2);
-    tensor_conv1d(z, w->decoder_net_17_aligned_branches_0_net_1_weight, 1, 1);
-
-    // (2)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (3)
-    tensor_conv1d(z, w->decoder_net_17_aligned_branches_0_net_3_weight, 1, 1);
-  }
-   
+  tensor_leaky_relu(z, 0.2f);
+  tensor_pad(z, 2, 0);
+  tensor_conv1d(z, w->decoder_net_17_aligned_branches_0_net_1_weight, 1, 1);
+  tensor_leaky_relu(z, 0.2f);
+  tensor_conv1d(z, w->decoder_net_17_aligned_branches_0_net_3_weight, 1, 1);
   tensor_tadd(z, w->skip);
 
   // (18)
   tensor_copy(w->skip, z);
-
-  {
-    // (0)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (1)
-    tensor_pad(z, 6);
-    tensor_conv1d(z, w->decoder_net_18_aligned_branches_0_net_1_weight, 1, 3);
-
-    // (2)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (3)
-    tensor_conv1d(z, w->decoder_net_18_aligned_branches_0_net_3_weight, 1, 1);
-  }
-   
+  tensor_leaky_relu(z, 0.2f);
+  tensor_pad(z, 6, 0);
+  tensor_conv1d(z, w->decoder_net_18_aligned_branches_0_net_1_weight, 1, 3);
+  tensor_leaky_relu(z, 0.2f);
+  tensor_conv1d(z, w->decoder_net_18_aligned_branches_0_net_3_weight, 1, 1);
   tensor_tadd(z, w->skip);
 
   // (19)
   tensor_copy(w->skip, z);
-
-  {
-    // (0)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (1)
-    tensor_pad(z, 18);
-    tensor_conv1d(z, w->decoder_net_19_aligned_branches_0_net_1_weight, 1, 9);
-
-    // (2)
-    tensor_leaky_relu(z, 0.2f);
-
-    // (3)
-    tensor_conv1d(z, w->decoder_net_19_aligned_branches_0_net_3_weight, 1, 1);
-  }
-   
+  tensor_leaky_relu(z, 0.2f);
+  tensor_pad(z, 18, 0);
+  tensor_conv1d(z, w->decoder_net_19_aligned_branches_0_net_1_weight, 1, 9);
+  tensor_leaky_relu(z, 0.2f);
+  tensor_conv1d(z, w->decoder_net_19_aligned_branches_0_net_3_weight, 1, 1);
   tensor_tadd(z, w->skip);
 
   // (20)
   tensor_snake(z, w->net_20_alpha);
 
   // (21)
-  tensor_pad(z, 6);
+  tensor_pad(z, 6, 0);
   tensor_conv1d(z, w->net_21_weight, 1, 1);
 
   tensor_t* amplitude = w->skip;
@@ -415,11 +295,12 @@ void v1_decode(tensor_t* z, v1_model_weights_t* w) {
   tensor_split(amplitude, z);
   tensor_sigmoid(amplitude);
   tensor_tmul(z, amplitude);
+
   tensor_tanh(z);
 
   tensor_reshape(z, U32_TPL(1, 16, 128)); 
   tensor_tmul(z, w->mask);
-  tensor_pad(z, 32);
+  tensor_pad(z, 32, 0);
   tensor_conv1d(z, w->pqmf_inverse_conv_weight, 1, 1);
   tensor_mul(z, 16);
   tensor_flip(z, 1);
