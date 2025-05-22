@@ -2,10 +2,16 @@
 
 mkdir -p out
 
-COMPILER_FLAGS="-Wall -Wno-deprecated -DACCELERATE_NEW_LAPACK -DACCELERATE_LAPACK_ILP64 -DCRV_IM2COL -framework Accelerate -fopenmp"
+COMPILER_FLAGS="-Wall \
+                -Wno-deprecated \
+                -DACCELERATE_NEW_LAPACK \
+                -DACCELERATE_LAPACK_ILP64 \
+                -framework Accelerate \
+                -fopenmp"
 
-if [ -n "$BUILD_UTILS" ] && [ "$BUILD_UTILS" -eq 1 ]; then
-  clang -g -O0 src/pack.c -o out/pack
+if [ -n "$BUILD_ALL" ] && [ "$BUILD_ALL" -eq 1 ]; then
+  clang -g -O3 src/pack.c -o out/pack
+  clang -g -O3 src/examples/v2.c -o out/v2
 fi
 
 clang++ -std=c++20 src/main.c $COMPILER_FLAGS -o out/__cpp_test
@@ -19,4 +25,3 @@ fi
 if [ $? -eq 0 ]; then
   out/main
 fi
-

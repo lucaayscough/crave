@@ -1,4 +1,4 @@
-#define CRAVE_IMPLEMENTATION
+#define CRV_IMPLEMENTATION
 #include "crave.h"
 
 int main() {

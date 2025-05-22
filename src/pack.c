@@ -1,12 +1,12 @@
-#define CRAVE_IMPLEMENTATION
-#include "crave.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/dir.h>
 #include <string.h>
 
 int main(int argc, char* argv[]) {
   if (argc > 2) {
     fprintf(stderr, "Error: -h for help.\n"); 
-    exit(1);
+    return 1;
   }
 
   if (strcmp(argv[1], "-h") == 0) {
@@ -22,10 +22,8 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
-  arena_t arena = {};
-  arena_init(&arena, MB);
-
-  void* memory = malloc(GB);
+  size_t alloc_size = 1000 * 1000 * 1000;
+  void* memory = malloc(alloc_size);
   if (memory) {
     char* dir_path = argv[1];
     size_t len_dir_path = strlen(dir_path);
@@ -49,12 +47,10 @@ int main(int argc, char* argv[]) {
                 FILE* file = fopen(filepath, "rb");
                 if (file) {
                   printf("Packing: %s\n", filename);
-          
                   fseek(file, 0, SEEK_END);
                   size_t size = ftell(file);
                   fseek(file, 0, SEEK_SET);
-
-                  if (size <= GB) {
+                  if (size <= alloc_size) {
                     if (fread(memory, 1, size, file) == size) {
                       if (fwrite(memory, 1, size, bin) == size) {
                         ++written_count;
@@ -96,7 +92,6 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "Couldn't allocate memory.\n");
   }
   free(memory);
-  arena_free(&arena);
 
   return 0;
 }
