@@ -92,87 +92,65 @@ typedef struct {
   tensor_t* noise;
   tensor_t* latent_pca;
   tensor_t* latent_mean;
-
   tensor_t* decoder_net_0_cache_pad;
   tensor_t* decoder_net_0_weight;
-
   tensor_t* decoder_net_1_alpha;
-
   tensor_t* decoder_net_2_cache;
   tensor_t* decoder_net_2_weight;
-
   tensor_t* decoder_net_3_aligned_paddings_1_pad;
   tensor_t* decoder_net_3_aligned_branches_0_net_1_cache_pad;
   tensor_t* decoder_net_3_aligned_branches_0_net_1_weight;
   tensor_t* decoder_net_3_aligned_branches_0_net_3_weight;
-
   tensor_t* decoder_net_4_aligned_paddings_1_pad;
   tensor_t* decoder_net_4_aligned_branches_0_net_1_cache_pad;
   tensor_t* decoder_net_4_aligned_branches_0_net_1_weight;
   tensor_t* decoder_net_4_aligned_branches_0_net_3_weight;
-
   tensor_t* decoder_net_5_alpha;
-
   tensor_t* decoder_net_6_cache;
   tensor_t* decoder_net_6_weight;
-
   tensor_t* decoder_net_7_aligned_paddings_1_pad;
   tensor_t* decoder_net_7_aligned_branches_0_net_1_cache_pad;
   tensor_t* decoder_net_7_aligned_branches_0_net_1_weight;
   tensor_t* decoder_net_7_aligned_branches_0_net_3_weight;
-
   tensor_t* decoder_net_8_aligned_paddings_1_pad;
   tensor_t* decoder_net_8_aligned_branches_0_net_1_cache_pad;
   tensor_t* decoder_net_8_aligned_branches_0_net_1_weight;
   tensor_t* decoder_net_8_aligned_branches_0_net_3_weight;
-
   tensor_t* decoder_net_9_aligned_paddings_1_pad;
   tensor_t* decoder_net_9_aligned_branches_0_net_1_cache_pad;
   tensor_t* decoder_net_9_aligned_branches_0_net_1_weight;
   tensor_t* decoder_net_9_aligned_branches_0_net_3_weight;
-
   tensor_t* decoder_net_10_alpha;
-
   tensor_t* decoder_net_11_cache;
   tensor_t* decoder_net_11_weight;
-
   tensor_t* decoder_net_12_aligned_paddings_1_pad;
   tensor_t* decoder_net_12_aligned_branches_0_net_1_cache_pad;
   tensor_t* decoder_net_12_aligned_branches_0_net_1_weight;
   tensor_t* decoder_net_12_aligned_branches_0_net_3_weight;
-
   tensor_t* decoder_net_13_aligned_paddings_1_pad;
   tensor_t* decoder_net_13_aligned_branches_0_net_1_cache_pad;
   tensor_t* decoder_net_13_aligned_branches_0_net_1_weight;
   tensor_t* decoder_net_13_aligned_branches_0_net_3_weight;
-
   tensor_t* decoder_net_14_aligned_paddings_1_pad;
   tensor_t* decoder_net_14_aligned_branches_0_net_1_cache_pad;
   tensor_t* decoder_net_14_aligned_branches_0_net_1_weight;
   tensor_t* decoder_net_14_aligned_branches_0_net_3_weight;
-
   tensor_t* decoder_net_15_alpha;
-
   tensor_t* decoder_net_16_cache;
   tensor_t* decoder_net_16_weight;
-
   tensor_t* decoder_net_17_aligned_paddings_1_pad;
   tensor_t* decoder_net_17_aligned_branches_0_net_1_cache_pad;
   tensor_t* decoder_net_17_aligned_branches_0_net_1_weight;
   tensor_t* decoder_net_17_aligned_branches_0_net_3_weight;
-
   tensor_t* decoder_net_18_aligned_paddings_1_pad;
   tensor_t* decoder_net_18_aligned_branches_0_net_1_cache_pad;
   tensor_t* decoder_net_18_aligned_branches_0_net_1_weight;
   tensor_t* decoder_net_18_aligned_branches_0_net_3_weight;
-
   tensor_t* decoder_net_19_aligned_paddings_1_pad;
   tensor_t* decoder_net_19_aligned_branches_0_net_1_cache_pad;
   tensor_t* decoder_net_19_aligned_branches_0_net_1_weight;
   tensor_t* decoder_net_19_aligned_branches_0_net_3_weight;
-
   tensor_t* decoder_net_20_alpha;
-
   tensor_t* decoder_noise_module_net_0_cache_pad;
   tensor_t* decoder_noise_module_net_0_weight;
   tensor_t* decoder_noise_module_net_1_alpha;
@@ -181,7 +159,6 @@ typedef struct {
   tensor_t* decoder_noise_module_net_3_alpha;
   tensor_t* decoder_noise_module_net_4_cache_pad;
   tensor_t* decoder_noise_module_net_4_weight;
-
   tensor_t* decoder_waveform_module_cache_pad;
   tensor_t* decoder_waveform_module_weight;
   tensor_t* pqmf_inverse_conv_cache_pad;
@@ -195,93 +172,70 @@ typedef struct {
   tensor_t* scratch_2;
 } v2_model_t;
 
-void v2_load_packed_weights(arena_t* arena, v2_model_t* w) {
-  tensor_list_t* list = tensor_load_from_blob(arena, "weights.bin");
-
+void v2_load_weights(arena_t* arena, v2_model_t* w, tensor_list_t* list) {
+  // TODO(luca): Add error handling.
   w->noise                                              = tensor_find_in_list(list, "pre_process_latent_noise");
   w->latent_pca                                         = tensor_find_in_list(list, "latent_pca");
   w->latent_mean                                        = tensor_find_in_list(list, "latent_mean");
-
   w->decoder_net_0_weight                               = tensor_find_in_list(list, "decoder.net.0.weight");
   w->decoder_net_0_cache_pad                            = tensor_find_in_list(list, "decoder.net.0.cache.pad");
-
   w->decoder_net_1_alpha                                = tensor_find_in_list(list, "decoder.net.1.alpha");
-
   w->decoder_net_2_cache                                = tensor_find_in_list(list, "decoder.net.2.cache");
   w->decoder_net_2_weight                               = tensor_find_in_list(list, "decoder.net.2.weight");
-
   w->decoder_net_3_aligned_paddings_1_pad               = tensor_find_in_list(list, "decoder.net.3.aligned.paddings.1.pad");
   w->decoder_net_3_aligned_branches_0_net_1_cache_pad   = tensor_find_in_list(list, "decoder.net.3.aligned.branches.0.net.1.cache.pad");
   w->decoder_net_3_aligned_branches_0_net_1_weight      = tensor_find_in_list(list, "decoder.net.3.aligned.branches.0.net.1.weight");
   w->decoder_net_3_aligned_branches_0_net_3_weight      = tensor_find_in_list(list, "decoder.net.3.aligned.branches.0.net.3.weight");
-
   w->decoder_net_4_aligned_paddings_1_pad               = tensor_find_in_list(list, "decoder.net.4.aligned.paddings.1.pad");
   w->decoder_net_4_aligned_branches_0_net_1_cache_pad   = tensor_find_in_list(list, "decoder.net.4.aligned.branches.0.net.1.cache.pad");
   w->decoder_net_4_aligned_branches_0_net_1_weight      = tensor_find_in_list(list, "decoder.net.4.aligned.branches.0.net.1.weight");
   w->decoder_net_4_aligned_branches_0_net_3_weight      = tensor_find_in_list(list, "decoder.net.4.aligned.branches.0.net.3.weight");
-
   w->decoder_net_5_alpha                                = tensor_find_in_list(list, "decoder.net.5.alpha");
-
   w->decoder_net_6_cache                                = tensor_find_in_list(list, "decoder.net.6.cache");
   w->decoder_net_6_weight                               = tensor_find_in_list(list, "decoder.net.6.weight");
-
   w->decoder_net_7_aligned_paddings_1_pad               = tensor_find_in_list(list, "decoder.net.7.aligned.paddings.1.pad");
   w->decoder_net_7_aligned_branches_0_net_1_cache_pad   = tensor_find_in_list(list, "decoder.net.7.aligned.branches.0.net.1.cache.pad");
   w->decoder_net_7_aligned_branches_0_net_1_weight      = tensor_find_in_list(list, "decoder.net.7.aligned.branches.0.net.1.weight");
   w->decoder_net_7_aligned_branches_0_net_3_weight      = tensor_find_in_list(list, "decoder.net.7.aligned.branches.0.net.3.weight");
-
   w->decoder_net_8_aligned_paddings_1_pad               = tensor_find_in_list(list, "decoder.net.8.aligned.paddings.1.pad");
   w->decoder_net_8_aligned_branches_0_net_1_cache_pad   = tensor_find_in_list(list, "decoder.net.8.aligned.branches.0.net.1.cache.pad");
   w->decoder_net_8_aligned_branches_0_net_1_weight      = tensor_find_in_list(list, "decoder.net.8.aligned.branches.0.net.1.weight");
   w->decoder_net_8_aligned_branches_0_net_3_weight      = tensor_find_in_list(list, "decoder.net.8.aligned.branches.0.net.3.weight");
-
   w->decoder_net_9_aligned_paddings_1_pad               = tensor_find_in_list(list, "decoder.net.9.aligned.paddings.1.pad");
   w->decoder_net_9_aligned_branches_0_net_1_cache_pad   = tensor_find_in_list(list, "decoder.net.9.aligned.branches.0.net.1.cache.pad");
   w->decoder_net_9_aligned_branches_0_net_1_weight      = tensor_find_in_list(list, "decoder.net.9.aligned.branches.0.net.1.weight");
   w->decoder_net_9_aligned_branches_0_net_3_weight      = tensor_find_in_list(list, "decoder.net.9.aligned.branches.0.net.3.weight");
-
   w->decoder_net_10_alpha                               = tensor_find_in_list(list, "decoder.net.10.alpha");
-
-  w->decoder_net_11_cache                                = tensor_find_in_list(list, "decoder.net.11.cache");
+  w->decoder_net_11_cache                               = tensor_find_in_list(list, "decoder.net.11.cache");
   w->decoder_net_11_weight                              = tensor_find_in_list(list, "decoder.net.11.weight");
-
-  w->decoder_net_12_aligned_paddings_1_pad               = tensor_find_in_list(list, "decoder.net.12.aligned.paddings.1.pad");
-  w->decoder_net_12_aligned_branches_0_net_1_cache_pad   = tensor_find_in_list(list, "decoder.net.12.aligned.branches.0.net.1.cache.pad");
-  w->decoder_net_12_aligned_branches_0_net_1_weight      = tensor_find_in_list(list, "decoder.net.12.aligned.branches.0.net.1.weight");
-  w->decoder_net_12_aligned_branches_0_net_3_weight      = tensor_find_in_list(list, "decoder.net.12.aligned.branches.0.net.3.weight");
-
-  w->decoder_net_13_aligned_paddings_1_pad               = tensor_find_in_list(list, "decoder.net.13.aligned.paddings.1.pad");
-  w->decoder_net_13_aligned_branches_0_net_1_cache_pad   = tensor_find_in_list(list, "decoder.net.13.aligned.branches.0.net.1.cache.pad");
-  w->decoder_net_13_aligned_branches_0_net_1_weight      = tensor_find_in_list(list, "decoder.net.13.aligned.branches.0.net.1.weight");
-  w->decoder_net_13_aligned_branches_0_net_3_weight      = tensor_find_in_list(list, "decoder.net.13.aligned.branches.0.net.3.weight");
-
-  w->decoder_net_14_aligned_paddings_1_pad               = tensor_find_in_list(list, "decoder.net.14.aligned.paddings.1.pad");
-  w->decoder_net_14_aligned_branches_0_net_1_cache_pad   = tensor_find_in_list(list, "decoder.net.14.aligned.branches.0.net.1.cache.pad");
-  w->decoder_net_14_aligned_branches_0_net_1_weight      = tensor_find_in_list(list, "decoder.net.14.aligned.branches.0.net.1.weight");
-  w->decoder_net_14_aligned_branches_0_net_3_weight      = tensor_find_in_list(list, "decoder.net.14.aligned.branches.0.net.3.weight");
-
+  w->decoder_net_12_aligned_paddings_1_pad              = tensor_find_in_list(list, "decoder.net.12.aligned.paddings.1.pad");
+  w->decoder_net_12_aligned_branches_0_net_1_cache_pad  = tensor_find_in_list(list, "decoder.net.12.aligned.branches.0.net.1.cache.pad");
+  w->decoder_net_12_aligned_branches_0_net_1_weight     = tensor_find_in_list(list, "decoder.net.12.aligned.branches.0.net.1.weight");
+  w->decoder_net_12_aligned_branches_0_net_3_weight     = tensor_find_in_list(list, "decoder.net.12.aligned.branches.0.net.3.weight");
+  w->decoder_net_13_aligned_paddings_1_pad              = tensor_find_in_list(list, "decoder.net.13.aligned.paddings.1.pad");
+  w->decoder_net_13_aligned_branches_0_net_1_cache_pad  = tensor_find_in_list(list, "decoder.net.13.aligned.branches.0.net.1.cache.pad");
+  w->decoder_net_13_aligned_branches_0_net_1_weight     = tensor_find_in_list(list, "decoder.net.13.aligned.branches.0.net.1.weight");
+  w->decoder_net_13_aligned_branches_0_net_3_weight     = tensor_find_in_list(list, "decoder.net.13.aligned.branches.0.net.3.weight");
+  w->decoder_net_14_aligned_paddings_1_pad              = tensor_find_in_list(list, "decoder.net.14.aligned.paddings.1.pad");
+  w->decoder_net_14_aligned_branches_0_net_1_cache_pad  = tensor_find_in_list(list, "decoder.net.14.aligned.branches.0.net.1.cache.pad");
+  w->decoder_net_14_aligned_branches_0_net_1_weight     = tensor_find_in_list(list, "decoder.net.14.aligned.branches.0.net.1.weight");
+  w->decoder_net_14_aligned_branches_0_net_3_weight     = tensor_find_in_list(list, "decoder.net.14.aligned.branches.0.net.3.weight");
   w->decoder_net_15_alpha                               = tensor_find_in_list(list, "decoder.net.15.alpha");
-
-  w->decoder_net_16_cache                                = tensor_find_in_list(list, "decoder.net.16.cache");
+  w->decoder_net_16_cache                               = tensor_find_in_list(list, "decoder.net.16.cache");
   w->decoder_net_16_weight                              = tensor_find_in_list(list, "decoder.net.16.weight");
-
-  w->decoder_net_17_aligned_paddings_1_pad               = tensor_find_in_list(list, "decoder.net.17.aligned.paddings.1.pad");
-  w->decoder_net_17_aligned_branches_0_net_1_cache_pad   = tensor_find_in_list(list, "decoder.net.17.aligned.branches.0.net.1.cache.pad");
-  w->decoder_net_17_aligned_branches_0_net_1_weight      = tensor_find_in_list(list, "decoder.net.17.aligned.branches.0.net.1.weight");
-  w->decoder_net_17_aligned_branches_0_net_3_weight      = tensor_find_in_list(list, "decoder.net.17.aligned.branches.0.net.3.weight");
-
-  w->decoder_net_18_aligned_paddings_1_pad               = tensor_find_in_list(list, "decoder.net.18.aligned.paddings.1.pad");
-  w->decoder_net_18_aligned_branches_0_net_1_cache_pad   = tensor_find_in_list(list, "decoder.net.18.aligned.branches.0.net.1.cache.pad");
-  w->decoder_net_18_aligned_branches_0_net_1_weight      = tensor_find_in_list(list, "decoder.net.18.aligned.branches.0.net.1.weight");
-  w->decoder_net_18_aligned_branches_0_net_3_weight      = tensor_find_in_list(list, "decoder.net.18.aligned.branches.0.net.3.weight");
-
-  w->decoder_net_19_aligned_paddings_1_pad               = tensor_find_in_list(list, "decoder.net.19.aligned.paddings.1.pad");
-  w->decoder_net_19_aligned_branches_0_net_1_cache_pad   = tensor_find_in_list(list, "decoder.net.19.aligned.branches.0.net.1.cache.pad");
-  w->decoder_net_19_aligned_branches_0_net_1_weight      = tensor_find_in_list(list, "decoder.net.19.aligned.branches.0.net.1.weight");
-  w->decoder_net_19_aligned_branches_0_net_3_weight      = tensor_find_in_list(list, "decoder.net.19.aligned.branches.0.net.3.weight");
-
+  w->decoder_net_17_aligned_paddings_1_pad              = tensor_find_in_list(list, "decoder.net.17.aligned.paddings.1.pad");
+  w->decoder_net_17_aligned_branches_0_net_1_cache_pad  = tensor_find_in_list(list, "decoder.net.17.aligned.branches.0.net.1.cache.pad");
+  w->decoder_net_17_aligned_branches_0_net_1_weight     = tensor_find_in_list(list, "decoder.net.17.aligned.branches.0.net.1.weight");
+  w->decoder_net_17_aligned_branches_0_net_3_weight     = tensor_find_in_list(list, "decoder.net.17.aligned.branches.0.net.3.weight");
+  w->decoder_net_18_aligned_paddings_1_pad              = tensor_find_in_list(list, "decoder.net.18.aligned.paddings.1.pad");
+  w->decoder_net_18_aligned_branches_0_net_1_cache_pad  = tensor_find_in_list(list, "decoder.net.18.aligned.branches.0.net.1.cache.pad");
+  w->decoder_net_18_aligned_branches_0_net_1_weight     = tensor_find_in_list(list, "decoder.net.18.aligned.branches.0.net.1.weight");
+  w->decoder_net_18_aligned_branches_0_net_3_weight     = tensor_find_in_list(list, "decoder.net.18.aligned.branches.0.net.3.weight");
+  w->decoder_net_19_aligned_paddings_1_pad              = tensor_find_in_list(list, "decoder.net.19.aligned.paddings.1.pad");
+  w->decoder_net_19_aligned_branches_0_net_1_cache_pad  = tensor_find_in_list(list, "decoder.net.19.aligned.branches.0.net.1.cache.pad");
+  w->decoder_net_19_aligned_branches_0_net_1_weight     = tensor_find_in_list(list, "decoder.net.19.aligned.branches.0.net.1.weight");
+  w->decoder_net_19_aligned_branches_0_net_3_weight     = tensor_find_in_list(list, "decoder.net.19.aligned.branches.0.net.3.weight");
   w->decoder_net_20_alpha                               = tensor_find_in_list(list, "decoder.net.20.alpha");
-
   w->decoder_noise_module_net_0_cache_pad               = tensor_find_in_list(list, "decoder.noise_module.net.0.cache.pad");
   w->decoder_noise_module_net_0_weight                  = tensor_find_in_list(list, "decoder.noise_module.net.0.weight");
   w->decoder_noise_module_net_1_alpha                   = tensor_find_in_list(list, "decoder.noise_module.net.1.alpha");
@@ -290,7 +244,6 @@ void v2_load_packed_weights(arena_t* arena, v2_model_t* w) {
   w->decoder_noise_module_net_3_alpha                   = tensor_find_in_list(list, "decoder.noise_module.net.3.alpha");
   w->decoder_noise_module_net_4_cache_pad               = tensor_find_in_list(list, "decoder.noise_module.net.4.cache.pad");
   w->decoder_noise_module_net_4_weight                  = tensor_find_in_list(list, "decoder.noise_module.net.4.weight");
-
   w->decoder_waveform_module_cache_pad                  = tensor_find_in_list(list, "decoder.waveform_module.cache.pad");
   w->decoder_waveform_module_weight                     = tensor_find_in_list(list, "decoder.waveform_module.weight");
   w->pqmf_inverse_conv_cache_pad                        = tensor_find_in_list(list, "pqmf.inverse_conv.cache.pad");
@@ -300,87 +253,65 @@ void v2_load_packed_weights(arena_t* arena, v2_model_t* w) {
   assert(w->noise != NULL);
   assert(w->latent_pca != NULL);
   assert(w->latent_mean != NULL);
-
   assert(w->decoder_net_0_weight != NULL);
   assert(w->decoder_net_0_cache_pad != NULL);
-
   assert(w->decoder_net_1_alpha != NULL);
-
   assert(w->decoder_net_2_cache != NULL);
   assert(w->decoder_net_2_weight != NULL);
-
   assert(w->decoder_net_3_aligned_paddings_1_pad != NULL);
   assert(w->decoder_net_3_aligned_branches_0_net_1_cache_pad != NULL);
   assert(w->decoder_net_3_aligned_branches_0_net_1_weight != NULL);
   assert(w->decoder_net_3_aligned_branches_0_net_3_weight != NULL);
-
   assert(w->decoder_net_4_aligned_paddings_1_pad != NULL);
   assert(w->decoder_net_4_aligned_branches_0_net_1_cache_pad != NULL);
   assert(w->decoder_net_4_aligned_branches_0_net_1_weight != NULL);
   assert(w->decoder_net_4_aligned_branches_0_net_3_weight != NULL);
-
   assert(w->decoder_net_5_alpha != NULL);
-
   assert(w->decoder_net_6_cache != NULL);
   assert(w->decoder_net_6_weight != NULL);
-
   assert(w->decoder_net_7_aligned_paddings_1_pad != NULL);
   assert(w->decoder_net_7_aligned_branches_0_net_1_cache_pad != NULL);
   assert(w->decoder_net_7_aligned_branches_0_net_1_weight != NULL);
   assert(w->decoder_net_7_aligned_branches_0_net_3_weight != NULL);
-
   assert(w->decoder_net_8_aligned_paddings_1_pad != NULL);
   assert(w->decoder_net_8_aligned_branches_0_net_1_cache_pad != NULL);
   assert(w->decoder_net_8_aligned_branches_0_net_1_weight != NULL);
   assert(w->decoder_net_8_aligned_branches_0_net_3_weight != NULL);
-
   assert(w->decoder_net_9_aligned_paddings_1_pad != NULL);
   assert(w->decoder_net_9_aligned_branches_0_net_1_cache_pad != NULL);
   assert(w->decoder_net_9_aligned_branches_0_net_1_weight != NULL);
   assert(w->decoder_net_9_aligned_branches_0_net_3_weight != NULL);
-
   assert(w->decoder_net_10_alpha != NULL);
-
   assert(w->decoder_net_11_cache != NULL);
   assert(w->decoder_net_11_weight != NULL);
-
   assert(w->decoder_net_12_aligned_paddings_1_pad != NULL);
   assert(w->decoder_net_12_aligned_branches_0_net_1_cache_pad != NULL);
   assert(w->decoder_net_12_aligned_branches_0_net_1_weight != NULL);
   assert(w->decoder_net_12_aligned_branches_0_net_3_weight != NULL);
-
   assert(w->decoder_net_13_aligned_paddings_1_pad != NULL);
   assert(w->decoder_net_13_aligned_branches_0_net_1_cache_pad != NULL);
   assert(w->decoder_net_13_aligned_branches_0_net_1_weight != NULL);
   assert(w->decoder_net_13_aligned_branches_0_net_3_weight != NULL);
-
   assert(w->decoder_net_14_aligned_paddings_1_pad != NULL);
   assert(w->decoder_net_14_aligned_branches_0_net_1_cache_pad != NULL);
   assert(w->decoder_net_14_aligned_branches_0_net_1_weight != NULL);
   assert(w->decoder_net_14_aligned_branches_0_net_3_weight != NULL);
-
   assert(w->decoder_net_15_alpha != NULL);
-
   assert(w->decoder_net_16_cache != NULL);
   assert(w->decoder_net_16_weight != NULL);
-
   assert(w->decoder_net_17_aligned_paddings_1_pad != NULL);
   assert(w->decoder_net_17_aligned_branches_0_net_1_cache_pad != NULL);
   assert(w->decoder_net_17_aligned_branches_0_net_1_weight != NULL);
   assert(w->decoder_net_17_aligned_branches_0_net_3_weight != NULL);
-
   assert(w->decoder_net_18_aligned_paddings_1_pad != NULL);
   assert(w->decoder_net_18_aligned_branches_0_net_1_cache_pad != NULL);
   assert(w->decoder_net_18_aligned_branches_0_net_1_weight != NULL);
   assert(w->decoder_net_18_aligned_branches_0_net_3_weight != NULL);
-
   assert(w->decoder_net_19_aligned_paddings_1_pad != NULL);
   assert(w->decoder_net_19_aligned_branches_0_net_1_cache_pad != NULL);
   assert(w->decoder_net_19_aligned_branches_0_net_1_weight != NULL);
   assert(w->decoder_net_19_aligned_branches_0_net_3_weight != NULL);
-
   assert(w->decoder_net_20_alpha != NULL);
-
   assert(w->decoder_noise_module_net_0_cache_pad != NULL);
   assert(w->decoder_noise_module_net_0_weight != NULL);
   assert(w->decoder_noise_module_net_1_alpha != NULL);
@@ -427,7 +358,7 @@ void v2_load_packed_weights(arena_t* arena, v2_model_t* w) {
   tensor_unsqueeze(w->latent_mean, w->latent_mean->rank);
 }
 
-void v2_load_weights(arena_t* arena, v2_model_t* w) {
+void v2_load_weights_(arena_t* arena, v2_model_t* w) {
   w->noise                                              = tensor_load_from_file(arena, V2_BIN_PATH"pre_process_latent_noise.bin", TENSOR_AUTO_CAP);
   w->latent_pca                                         = tensor_load_from_file(arena, V2_BIN_PATH"latent_pca.bin", TENSOR_AUTO_CAP);
   w->latent_mean                                        = tensor_load_from_file(arena, V2_BIN_PATH"latent_mean.bin", TENSOR_AUTO_CAP);
