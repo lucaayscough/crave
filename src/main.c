@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
     v1_decode(z, &v1_weights);
     crv_tensor_print_error_stats(z, y);
     crv_print_runtime_ms(start);
-    printf("\n\n");
+    printf("\n");
   }
 
   {

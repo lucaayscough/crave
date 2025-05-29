@@ -1204,7 +1204,6 @@ void crv_tensor_conv1d(tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilat
     assert(x->rank == 3);
     assert(w->rank == 3);
   );
-
   size_t out_ch = w->dims[0];
   size_t in_ch = w->dims[1];
   size_t w_len = w->dims[2];
