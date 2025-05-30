@@ -8,10 +8,12 @@
 #include <Accelerate/Accelerate.h>
 
 #define MAX_N 2048
-#define TILE_SIZE 64 
 #define SIZE MAX_N * MAX_N
 
-void crv_gemm_t(float* C, const float* A, const float* B, size_t m, size_t n, size_t k) {
+#define T 64 
+#define S 4
+
+void crv_gepp(float* C, const float* A, const float* B, size_t m, size_t n, size_t k) {
   for (size_t i = 0; i < m; ++i) {
     for (size_t p = 0; p < k; ++p) {
       for (size_t j = 0; j < n; ++j) {
@@ -21,34 +23,68 @@ void crv_gemm_t(float* C, const float* A, const float* B, size_t m, size_t n, si
   }
 }
 
-void crv_gemm(float* C, const float* A, const float* B, size_t m, size_t n, size_t k) {
-  float A_[TILE_SIZE * TILE_SIZE];
-  float B_[TILE_SIZE * TILE_SIZE];
-  float C_[TILE_SIZE * TILE_SIZE] = {};
+void crv_gemm_tile(float* C, const float* A, const float* B, size_t m, size_t n, size_t k) {
+  float A_[S * T];
+  float B_[T * S];
+  float C_[S * S];
 
-  for (size_t i = 0; i < m; i += TILE_SIZE) {
-    for (size_t j = 0; j < n; j += TILE_SIZE) {
-      memset(C_, 0, sizeof(float) * TILE_SIZE * TILE_SIZE);
+  for (size_t i = 0; i < m; i += S) {
+    for (size_t j = 0; j < n; j += S) {
+      memset(C_, 0, sizeof(float) * S * S);
 
-      for (size_t p = 0; p < k; p += TILE_SIZE) {
+      for (size_t p = 0; p < k; p += T) {
         size_t A_idx = (i * k) + p;
         size_t B_idx = (p * n) + j;
 
-        for (size_t _i = 0; _i < TILE_SIZE; ++_i) {
-          memcpy(A_ + _i * TILE_SIZE, A + A_idx + _i * k, sizeof(float) * TILE_SIZE);
+        for (size_t _i = 0; _i < S; ++_i) {
+          memcpy(A_ + _i * T, A + A_idx + _i * k, sizeof(float) * T);
         }
 
-        for (size_t _p = 0; _p < TILE_SIZE; ++_p) {
-          memcpy(B_ + _p * TILE_SIZE, B + B_idx + _p * n, sizeof(float) * TILE_SIZE);
+        for (size_t _p = 0; _p < T; ++_p) {
+          memcpy(B_ + _p * S, B + B_idx + _p * n, sizeof(float) * S);
         }
 
-        crv_gemm_t(C_, A_, B_, TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        crv_gepp(C_, A_, B_, S, S, T);
       }
 
       size_t C_idx = (i * n) + j;
-      for (size_t _i = 0; _i < TILE_SIZE; ++_i) {
-        for (size_t _j = 0; _j < TILE_SIZE; ++_j) {
-          C[C_idx + _i * n + _j] += C_[_i * TILE_SIZE + _j];
+      for (size_t _i = 0; _i < S; ++_i) {
+        for (size_t _j = 0; _j < S; ++_j) {
+          C[C_idx + _i * n + _j] += C_[_i * S + _j];
+        }
+      }
+    }
+  }
+}
+
+void crv_gemm(float* C, const float* A, const float* B, size_t m, size_t n, size_t k) {
+  float A_[T * T];
+  float B_[T * T];
+  float C_[T * T];
+
+  for (size_t i = 0; i < m; i += T) {
+    for (size_t j = 0; j < n; j += T) {
+      memset(C_, 0, sizeof(float) * T * T);
+
+      for (size_t p = 0; p < k; p += T) {
+        size_t A_idx = (i * k) + p;
+        size_t B_idx = (p * n) + j;
+
+        for (size_t _i = 0; _i < T; ++_i) {
+          memcpy(A_ + _i * T, A + A_idx + _i * k, sizeof(float) * T);
+        }
+
+        for (size_t _p = 0; _p < T; ++_p) {
+          memcpy(B_ + _p * T, B + B_idx + _p * n, sizeof(float) * T);
+        }
+
+        crv_gemm_tile(C_, A_, B_, T, T, T);
+      }
+
+      size_t C_idx = (i * n) + j;
+      for (size_t _i = 0; _i < T; ++_i) {
+        for (size_t _j = 0; _j < T; ++_j) {
+          C[C_idx + _i * n + _j] += C_[_i * T + _j];
         }
       }
     }
@@ -65,7 +101,7 @@ int main() {
   float* C1 = (float*)malloc(SIZE * sizeof(float));
   float* C2 = (float*)malloc(SIZE * sizeof(float));
   
-  for (size_t i = TILE_SIZE; i <= MAX_N; i *= 2) {
+  for (size_t i = T; i <= MAX_N; i *= 2) {
     printf("Testing %zux%zu\n", i, i);
 
     for (size_t j = 0; j < SIZE; ++j) {
@@ -77,7 +113,7 @@ int main() {
 
     printf("Mine:\n");
     start = clock();  
-    crv_gemm(C1, A, B, i, i, i);
+    crv_gemm_tile(C1, A, B, i, i, i);
     crv_print_runtime_ms(start);
 
     printf("Accelerate:\n");
@@ -90,7 +126,7 @@ int main() {
       A, i,
       B, i,
       1.0f,
-      C2, i 
+      C2, i
     );
 
     crv_print_runtime_ms(start);
