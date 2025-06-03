@@ -1,20 +1,6 @@
 #ifndef CRAVE_H
 #define CRAVE_H
 
-// TODO(luca): Add model implementation tests.
-// TODO(luca): Add CRV_H tests.
-// TODO(luca): Add model config id.
-// TODO(luca): Rename from v2 to unique id.
-// TODO(luca): Add crave prefix (maybe crv)
-// TODO(luca): Add allocation boundaries to validate memory writes.
-// TODO(luca): Allocate memory normally to validate memory writes.
-// TODO(luca): Use base pointer.
-// TODO(luca): Add option to commit memory when allocating.
-// TODO(luca): While having the arena is nice, it might be nicer to be able to
-// simply use our own memory and not have to rely on an allocator. This would
-// make the library more flexible for other users that may not want to rely on
-// our allocator and instead manage their own memory.
-
 #include <stdio.h>
 #include <time.h>
 #include <stdint.h>
@@ -37,12 +23,6 @@
 extern "C" {
 #endif
 
-typedef struct {
-  size_t size;
-  size_t index;
-  void* data;
-} arena_t;
-
 // TODO(luca): Use size_t for some items such as count and cap.
 typedef struct {
   uint32_t cap;
@@ -58,10 +38,6 @@ typedef struct {
   tensor_t** tensors;
   size_t count;
 } tensor_list_t;
-
-CRV_API void            crv_arena_init                        (arena_t* arena, size_t size);
-CRV_API void*           crv_arena_alloc                       (arena_t* arena, size_t size);
-CRV_API void            crv_arena_free                        (arena_t* arena);
 
 CRV_API inline void     crv_randn                             (float* output);
 
@@ -79,7 +55,7 @@ CRV_API inline size_t   crv_get_tensor_last_dim_index         (tensor_t* input);
 CRV_API inline size_t   crv_get_tensor_last_dim_size          (tensor_t* input);
 
 CRV_API size_t          crv_tensor_get_alloc_size_for_shape   (uint32_t* dims, uint32_t rank, int swap);
-CRV_API tensor_t*       crv_tensor_create                     (arena_t* arena, uint32_t* dims, uint32_t rank, uint32_t capacity);
+CRV_API tensor_t*       crv_tensor_create                     (char** dest, uint32_t* dims, uint32_t rank, uint32_t capacity, int swap);
 
 CRV_API tensor_t*       crv_tensor_find_in_list               (tensor_list_t* list, const char* name);
 CRV_API uint32_t        crv_read_u32_le                       (const char** it);
@@ -139,7 +115,7 @@ CRV_API void            crv_tensor_print                      (tensor_t* tensor)
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <Accelerate/Accelerate.h>
+//#include <Accelerate/Accelerate.h>
 
 #ifdef CRV_INTERNAL
  #define CRV_DO_INTERNAL(func) do { func } while (0)
@@ -154,33 +130,6 @@ CRV_API void            crv_tensor_print                      (tensor_t* tensor)
 
 #define CRV_TPL(...) \
   (uint32_t[]) {__VA_ARGS__}, sizeof((uint32_t[]) {__VA_ARGS__}) / sizeof(uint32_t)
-
-void crv_arena_init(arena_t* arena, size_t size) {
-  void* data = calloc(size, 1);
-  if (data) {
-    arena->size = size;
-    arena->index = 0;
-    arena->data = data;
-  }
-}
-
-void* crv_arena_alloc(arena_t* arena, size_t size) {
-  size_t alligned_size = size + (sizeof(size_t) - size % sizeof(size_t));
-  assert(alligned_size % sizeof(size_t) == 0);
-  if (arena->index + alligned_size > arena->size) {
-    assert(0);
-    return NULL;
-  }
-  char* data = (char*)arena->data + arena->index;
-  arena->index += alligned_size;
-  //void* memory = malloc(size);
-  //return memory;
-  return (void*)data;
-}
-
-void crv_arena_free(arena_t* arena) {
-  free(arena->data); 
-}
 
 void crv_print_runtime_ms(clock_t start) {
   clock_t end = clock();
@@ -275,7 +224,7 @@ size_t crv_tensor_get_alloc_size_for_shape(uint32_t* dims, uint32_t rank, int sw
   return size * sizeof(float) + sizeof(tensor_t);
 }
 
-tensor_t* crv_tensor_create_(char** dest, uint32_t* dims, uint32_t rank, uint32_t capacity, int swap) {
+tensor_t* crv_tensor_create(char** dest, uint32_t* dims, uint32_t rank, uint32_t capacity, int swap) {
   assert(dest);
   assert(rank > 0);
   assert(dims != NULL);
@@ -307,32 +256,6 @@ tensor_t* crv_tensor_create_(char** dest, uint32_t* dims, uint32_t rank, uint32_
     *dest += tensor->cap * sizeof(float);
   }
 
-  return tensor;
-}
-
-tensor_t* crv_tensor_create(arena_t* arena, uint32_t* dims, uint32_t rank, uint32_t capacity) {
-  // TODO(luca): Add option to enable swap memory.
-  assert(rank > 0);
-  assert(dims != NULL);
-  tensor_t* tensor = (tensor_t*)crv_arena_alloc(arena, sizeof(tensor_t));
-  assert(tensor);
-  tensor->rank = rank;
-  tensor->count = 1;
-  for (uint32_t i = 0; i < rank; ++i) {
-    assert(dims[i]);
-    tensor->dims[i] = dims[i];
-    tensor->count *= dims[i];
-  }
-  if (capacity == CRV_TENSOR_AUTO_CAP) {
-    tensor->cap = tensor->count;    
-  } else {
-    tensor->cap = capacity;
-    assert(tensor->count <= capacity);
-  }
-  tensor->data = (float*)crv_arena_alloc(arena, tensor->cap * sizeof(float));
-  assert(tensor->data);
-  tensor->swap = (float*)crv_arena_alloc(arena, tensor->cap * sizeof(float));
-  assert(tensor->swap);
   return tensor;
 }
 
@@ -390,7 +313,7 @@ tensor_t* crv_tensor_load_from_memory_iterator(char** dest_it, const char** src_
 
   uint32_t item_count = crv_read_u32_le(src_it);
 
-  tensor_t* tensor = crv_tensor_create_(dest_it, dims, rank, CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
+  tensor_t* tensor = crv_tensor_create(dest_it, dims, rank, CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
   crv_read_array(src_it, tensor->data, item_count * sizeof(*tensor->data));
 
   tensor->name = name;

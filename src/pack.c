@@ -111,7 +111,7 @@ int main(int argc, char* argv[]) {
             if (len_filename > 4) {
               if (strcmp(filename + len_filename - 4, ".bin") == 0) {
                 size_t len_filepath = len_dir_path + len_filename;
-                char* filepath = alloca(len_filepath);
+                char* filepath = (char*)alloca(len_filepath);
                 memset(filepath, 0, len_filepath);
                 strcpy(filepath, dir_path);
                 strlcat(filepath, filename, len_filepath + 1);

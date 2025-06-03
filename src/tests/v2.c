@@ -2,10 +2,11 @@
 #include "../model.h"
 
 int main(int argc, char* argv[]) {
-  printf("\n");
-  printf("Testing Model V1\n");
 
-  void* memory = malloc(5 * CRV_MB);
+  printf("\n");
+  printf("Testing Model V2\n");
+
+  void* memory = malloc(150 * CRV_MB);
   if (memory) {
     size_t size = 0;
     if (model_load_file_into_memory(memory, argv[1], &size) == MODEL_LOAD_SUCCESS) {
@@ -28,26 +29,25 @@ int main(int argc, char* argv[]) {
       tensor_list_t* list = crv_tensor_load_from_memory(&write_ptr, read_ptr, header.num_tensors);
 
       if (list) {
-        v1_model_t model = {};
+        v2_model_t model = {};
 
-        if (v1_load(&write_ptr, &model, list) == MODEL_LOAD_SUCCESS) {
+        if (v2_load(&write_ptr, &model, list) == MODEL_LOAD_SUCCESS) {
           tensor_t* z = crv_tensor_find_in_list(list, "z");
           assert(z != NULL);
           tensor_t* y = crv_tensor_find_in_list(list, "y");
           assert(y != NULL);
 
           crv_tensor_print_shape(z);
+
           tensor_t* input = crv_tensor_create(&write_ptr, CRV_TPL(16 * 2048), CRV_TENSOR_AUTO_CAP, CRV_SWAP);
 
           clock_t start = clock();
 
           crv_tensor_copy(input, z);
-          v1_decode(input, &model);
+          v2_decode(input, &model);
 
-          crv_tensor_print_error_stats(input, y);
-          printf("\n");
           crv_print_runtime_ms(start);
-          printf("\n");
+          crv_tensor_print_error_stats(input, y);
 
         } else {
           fprintf(stderr, "Failed to load model.\n");

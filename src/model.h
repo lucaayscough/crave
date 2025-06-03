@@ -15,10 +15,6 @@ typedef struct {
   uint32_t num_tensors;
 } header_t;
 
-void model_get_header_from_memory(header_t* dest, void* src) {
-  memcpy(dest, src, sizeof(header_t));
-}
-
 typedef struct {
   tensor_t* noise;
   tensor_t* latent_pca;
@@ -60,6 +56,124 @@ typedef struct {
   tensor_t* mask;
   tensor_t* skip;
 } v1_model_t;
+
+typedef struct {
+  tensor_t* noise;
+  tensor_t* latent_pca;
+  tensor_t* latent_mean;
+  tensor_t* decoder_net_0_cache_pad;
+  tensor_t* decoder_net_0_weight;
+  tensor_t* decoder_net_1_alpha;
+  tensor_t* decoder_net_2_cache;
+  tensor_t* decoder_net_2_weight;
+  tensor_t* decoder_net_3_aligned_paddings_1_pad;
+  tensor_t* decoder_net_3_aligned_branches_0_net_1_cache_pad;
+  tensor_t* decoder_net_3_aligned_branches_0_net_1_weight;
+  tensor_t* decoder_net_3_aligned_branches_0_net_3_weight;
+  tensor_t* decoder_net_4_aligned_paddings_1_pad;
+  tensor_t* decoder_net_4_aligned_branches_0_net_1_cache_pad;
+  tensor_t* decoder_net_4_aligned_branches_0_net_1_weight;
+  tensor_t* decoder_net_4_aligned_branches_0_net_3_weight;
+  tensor_t* decoder_net_5_alpha;
+  tensor_t* decoder_net_6_cache;
+  tensor_t* decoder_net_6_weight;
+  tensor_t* decoder_net_7_aligned_paddings_1_pad;
+  tensor_t* decoder_net_7_aligned_branches_0_net_1_cache_pad;
+  tensor_t* decoder_net_7_aligned_branches_0_net_1_weight;
+  tensor_t* decoder_net_7_aligned_branches_0_net_3_weight;
+  tensor_t* decoder_net_8_aligned_paddings_1_pad;
+  tensor_t* decoder_net_8_aligned_branches_0_net_1_cache_pad;
+  tensor_t* decoder_net_8_aligned_branches_0_net_1_weight;
+  tensor_t* decoder_net_8_aligned_branches_0_net_3_weight;
+  tensor_t* decoder_net_9_aligned_paddings_1_pad;
+  tensor_t* decoder_net_9_aligned_branches_0_net_1_cache_pad;
+  tensor_t* decoder_net_9_aligned_branches_0_net_1_weight;
+  tensor_t* decoder_net_9_aligned_branches_0_net_3_weight;
+  tensor_t* decoder_net_10_alpha;
+  tensor_t* decoder_net_11_cache;
+  tensor_t* decoder_net_11_weight;
+  tensor_t* decoder_net_12_aligned_paddings_1_pad;
+  tensor_t* decoder_net_12_aligned_branches_0_net_1_cache_pad;
+  tensor_t* decoder_net_12_aligned_branches_0_net_1_weight;
+  tensor_t* decoder_net_12_aligned_branches_0_net_3_weight;
+  tensor_t* decoder_net_13_aligned_paddings_1_pad;
+  tensor_t* decoder_net_13_aligned_branches_0_net_1_cache_pad;
+  tensor_t* decoder_net_13_aligned_branches_0_net_1_weight;
+  tensor_t* decoder_net_13_aligned_branches_0_net_3_weight;
+  tensor_t* decoder_net_14_aligned_paddings_1_pad;
+  tensor_t* decoder_net_14_aligned_branches_0_net_1_cache_pad;
+  tensor_t* decoder_net_14_aligned_branches_0_net_1_weight;
+  tensor_t* decoder_net_14_aligned_branches_0_net_3_weight;
+  tensor_t* decoder_net_15_alpha;
+  tensor_t* decoder_net_16_cache;
+  tensor_t* decoder_net_16_weight;
+  tensor_t* decoder_net_17_aligned_paddings_1_pad;
+  tensor_t* decoder_net_17_aligned_branches_0_net_1_cache_pad;
+  tensor_t* decoder_net_17_aligned_branches_0_net_1_weight;
+  tensor_t* decoder_net_17_aligned_branches_0_net_3_weight;
+  tensor_t* decoder_net_18_aligned_paddings_1_pad;
+  tensor_t* decoder_net_18_aligned_branches_0_net_1_cache_pad;
+  tensor_t* decoder_net_18_aligned_branches_0_net_1_weight;
+  tensor_t* decoder_net_18_aligned_branches_0_net_3_weight;
+  tensor_t* decoder_net_19_aligned_paddings_1_pad;
+  tensor_t* decoder_net_19_aligned_branches_0_net_1_cache_pad;
+  tensor_t* decoder_net_19_aligned_branches_0_net_1_weight;
+  tensor_t* decoder_net_19_aligned_branches_0_net_3_weight;
+  tensor_t* decoder_net_20_alpha;
+  tensor_t* decoder_noise_module_net_0_cache_pad;
+  tensor_t* decoder_noise_module_net_0_weight;
+  tensor_t* decoder_noise_module_net_1_alpha;
+  tensor_t* decoder_noise_module_net_2_cache_pad;
+  tensor_t* decoder_noise_module_net_2_weight;
+  tensor_t* decoder_noise_module_net_3_alpha;
+  tensor_t* decoder_noise_module_net_4_cache_pad;
+  tensor_t* decoder_noise_module_net_4_weight;
+  tensor_t* decoder_waveform_module_cache_pad;
+  tensor_t* decoder_waveform_module_weight;
+  tensor_t* pqmf_inverse_conv_cache_pad;
+  tensor_t* pqmf_inverse_conv_weight;
+  tensor_t* mask;
+  tensor_t* skip;
+  tensor_t* zeros;
+  tensor_t* hann;
+  tensor_t* ir_noise;
+  tensor_t* scratch_1;
+  tensor_t* scratch_2;
+} v2_model_t;
+
+int model_load_file_into_memory(void* dest, char* filepath, size_t* size) {
+  int result = MODEL_LOAD_ERROR;
+
+  assert(dest);
+  assert(filepath);
+  assert(size);
+
+  FILE* file = fopen(filepath, "rb"); 
+  if (file) {
+    fseek(file, 0, SEEK_END);
+    *size = ftell(file);
+    rewind(file);
+    if (*size) {
+      if (fread(dest, 1, *size, file) == *size) {
+        return MODEL_LOAD_SUCCESS;    
+      } else {
+        fprintf(stderr, "Failed to read entire file.\n");
+      }
+    } else {
+      fprintf(stderr, "Model file is empty.\n");
+    }
+  } else {
+    fprintf(stderr, "Failed to open file.\n");
+  }
+
+  fclose(file);
+
+  return result;
+}
+
+void model_get_header_from_memory(header_t* dest, void* src) {
+  memcpy(dest, src, sizeof(header_t));
+}
 
 int v1_load(char** dest, v1_model_t * model, tensor_list_t* list) {
   model->noise                                            = crv_tensor_find_in_list(list, "pre_process_latent_noise");
@@ -138,8 +252,8 @@ int v1_load(char** dest, v1_model_t * model, tensor_list_t* list) {
   if (model->net_20_alpha == NULL)                                      return MODEL_LOAD_ERROR;
   if (model->net_21_weight == NULL)                                     return MODEL_LOAD_ERROR;
 
-  model->skip = crv_tensor_create_(dest, CRV_TPL(2, 1024), CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
-  model->mask = crv_tensor_create_(dest, CRV_TPL(1, 16, 128), CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
+  model->skip = crv_tensor_create(dest, CRV_TPL(2, 1024), CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
+  model->mask = crv_tensor_create(dest, CRV_TPL(1, 16, 128), CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
 
   crv_tensor_fill(model->mask, 1.f);
 
@@ -416,92 +530,7 @@ void v2_cached_conv_transpose1d(tensor_t* input, tensor_t* weights, tensor_t* ca
   crv_tensor_trunc(input, 0, cache_size);
 }
 
-typedef struct {
-  tensor_t* noise;
-  tensor_t* latent_pca;
-  tensor_t* latent_mean;
-  tensor_t* decoder_net_0_cache_pad;
-  tensor_t* decoder_net_0_weight;
-  tensor_t* decoder_net_1_alpha;
-  tensor_t* decoder_net_2_cache;
-  tensor_t* decoder_net_2_weight;
-  tensor_t* decoder_net_3_aligned_paddings_1_pad;
-  tensor_t* decoder_net_3_aligned_branches_0_net_1_cache_pad;
-  tensor_t* decoder_net_3_aligned_branches_0_net_1_weight;
-  tensor_t* decoder_net_3_aligned_branches_0_net_3_weight;
-  tensor_t* decoder_net_4_aligned_paddings_1_pad;
-  tensor_t* decoder_net_4_aligned_branches_0_net_1_cache_pad;
-  tensor_t* decoder_net_4_aligned_branches_0_net_1_weight;
-  tensor_t* decoder_net_4_aligned_branches_0_net_3_weight;
-  tensor_t* decoder_net_5_alpha;
-  tensor_t* decoder_net_6_cache;
-  tensor_t* decoder_net_6_weight;
-  tensor_t* decoder_net_7_aligned_paddings_1_pad;
-  tensor_t* decoder_net_7_aligned_branches_0_net_1_cache_pad;
-  tensor_t* decoder_net_7_aligned_branches_0_net_1_weight;
-  tensor_t* decoder_net_7_aligned_branches_0_net_3_weight;
-  tensor_t* decoder_net_8_aligned_paddings_1_pad;
-  tensor_t* decoder_net_8_aligned_branches_0_net_1_cache_pad;
-  tensor_t* decoder_net_8_aligned_branches_0_net_1_weight;
-  tensor_t* decoder_net_8_aligned_branches_0_net_3_weight;
-  tensor_t* decoder_net_9_aligned_paddings_1_pad;
-  tensor_t* decoder_net_9_aligned_branches_0_net_1_cache_pad;
-  tensor_t* decoder_net_9_aligned_branches_0_net_1_weight;
-  tensor_t* decoder_net_9_aligned_branches_0_net_3_weight;
-  tensor_t* decoder_net_10_alpha;
-  tensor_t* decoder_net_11_cache;
-  tensor_t* decoder_net_11_weight;
-  tensor_t* decoder_net_12_aligned_paddings_1_pad;
-  tensor_t* decoder_net_12_aligned_branches_0_net_1_cache_pad;
-  tensor_t* decoder_net_12_aligned_branches_0_net_1_weight;
-  tensor_t* decoder_net_12_aligned_branches_0_net_3_weight;
-  tensor_t* decoder_net_13_aligned_paddings_1_pad;
-  tensor_t* decoder_net_13_aligned_branches_0_net_1_cache_pad;
-  tensor_t* decoder_net_13_aligned_branches_0_net_1_weight;
-  tensor_t* decoder_net_13_aligned_branches_0_net_3_weight;
-  tensor_t* decoder_net_14_aligned_paddings_1_pad;
-  tensor_t* decoder_net_14_aligned_branches_0_net_1_cache_pad;
-  tensor_t* decoder_net_14_aligned_branches_0_net_1_weight;
-  tensor_t* decoder_net_14_aligned_branches_0_net_3_weight;
-  tensor_t* decoder_net_15_alpha;
-  tensor_t* decoder_net_16_cache;
-  tensor_t* decoder_net_16_weight;
-  tensor_t* decoder_net_17_aligned_paddings_1_pad;
-  tensor_t* decoder_net_17_aligned_branches_0_net_1_cache_pad;
-  tensor_t* decoder_net_17_aligned_branches_0_net_1_weight;
-  tensor_t* decoder_net_17_aligned_branches_0_net_3_weight;
-  tensor_t* decoder_net_18_aligned_paddings_1_pad;
-  tensor_t* decoder_net_18_aligned_branches_0_net_1_cache_pad;
-  tensor_t* decoder_net_18_aligned_branches_0_net_1_weight;
-  tensor_t* decoder_net_18_aligned_branches_0_net_3_weight;
-  tensor_t* decoder_net_19_aligned_paddings_1_pad;
-  tensor_t* decoder_net_19_aligned_branches_0_net_1_cache_pad;
-  tensor_t* decoder_net_19_aligned_branches_0_net_1_weight;
-  tensor_t* decoder_net_19_aligned_branches_0_net_3_weight;
-  tensor_t* decoder_net_20_alpha;
-  tensor_t* decoder_noise_module_net_0_cache_pad;
-  tensor_t* decoder_noise_module_net_0_weight;
-  tensor_t* decoder_noise_module_net_1_alpha;
-  tensor_t* decoder_noise_module_net_2_cache_pad;
-  tensor_t* decoder_noise_module_net_2_weight;
-  tensor_t* decoder_noise_module_net_3_alpha;
-  tensor_t* decoder_noise_module_net_4_cache_pad;
-  tensor_t* decoder_noise_module_net_4_weight;
-  tensor_t* decoder_waveform_module_cache_pad;
-  tensor_t* decoder_waveform_module_weight;
-  tensor_t* pqmf_inverse_conv_cache_pad;
-  tensor_t* pqmf_inverse_conv_weight;
-  tensor_t* mask;
-  tensor_t* skip;
-  tensor_t* zeros;
-  tensor_t* hann;
-  tensor_t* ir_noise;
-  tensor_t* scratch_1;
-  tensor_t* scratch_2;
-} v2_model_t;
-
-void v2_load_weights(arena_t* arena, v2_model_t* w, tensor_list_t* list) {
-  // TODO(luca): Add error handling.
+int v2_load(char** dest, v2_model_t* w, tensor_list_t* list) {
   w->noise                                              = crv_tensor_find_in_list(list, "pre_process_latent_noise");
   w->latent_pca                                         = crv_tensor_find_in_list(list, "latent_pca");
   w->latent_mean                                        = crv_tensor_find_in_list(list, "latent_mean");
@@ -653,12 +682,12 @@ void v2_load_weights(arena_t* arena, v2_model_t* w, tensor_list_t* list) {
   assert(w->pqmf_inverse_conv_weight != NULL);
   assert(w->ir_noise != NULL);
 
-  w->skip = crv_tensor_create(arena, CRV_TPL(1), 8 * 2048);
-  w->zeros = crv_tensor_create(arena, CRV_TPL(1, 16, 16, 5, 1), CRV_TENSOR_AUTO_CAP);
-  w->mask = crv_tensor_create(arena, CRV_TPL(1, 16, 128), CRV_TENSOR_AUTO_CAP);
-  w->hann = crv_tensor_create(arena, CRV_TPL(8), CRV_TENSOR_AUTO_CAP);
-  w->scratch_1 = crv_tensor_create(arena, CRV_TPL(1), 2 * 8192);
-  w->scratch_2 = crv_tensor_create(arena, CRV_TPL(1), 16 * 8192);
+  w->skip = crv_tensor_create(dest, CRV_TPL(8 * 2048), CRV_TENSOR_AUTO_CAP, CRV_SWAP);
+  w->zeros = crv_tensor_create(dest, CRV_TPL(1, 16, 16, 5, 1), CRV_TENSOR_AUTO_CAP, CRV_SWAP);
+  w->mask = crv_tensor_create(dest, CRV_TPL(1, 16, 128), CRV_TENSOR_AUTO_CAP, CRV_SWAP);
+  w->hann = crv_tensor_create(dest, CRV_TPL(8), CRV_TENSOR_AUTO_CAP, CRV_SWAP);
+  w->scratch_1 = crv_tensor_create(dest, CRV_TPL(2 * 8192), CRV_TENSOR_AUTO_CAP, CRV_SWAP);
+  w->scratch_2 = crv_tensor_create(dest, CRV_TPL(16 * 8192), CRV_TENSOR_AUTO_CAP, CRV_SWAP);
 
   assert(w->skip != NULL);
   assert(w->zeros != NULL);
@@ -680,11 +709,15 @@ void v2_load_weights(arena_t* arena, v2_model_t* w, tensor_list_t* list) {
     }
   }
 
+  w->latent_pca->swap = (float*)*dest;
+  *dest += w->latent_pca->count * sizeof(float);
 
   crv_tensor_unsqueeze(w->latent_pca, w->latent_pca->rank);
   crv_tensor_transpose(w->latent_pca, 0, 1);
   crv_tensor_unsqueeze(w->latent_mean, 0);
   crv_tensor_unsqueeze(w->latent_mean, w->latent_mean->rank);
+  
+  return MODEL_LOAD_SUCCESS;
 }
 
 void v2_noise_generator(tensor_t* input, v2_model_t* w) {
