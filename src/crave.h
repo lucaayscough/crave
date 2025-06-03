@@ -74,15 +74,14 @@ CRV_API inline size_t   crv_get_tensor_last_dim_index         (tensor_t* input);
 CRV_API inline size_t   crv_get_tensor_last_dim_size          (tensor_t* input);
 
 CRV_API tensor_t*       crv_tensor_create                     (arena_t* arena, uint32_t* dims, uint32_t rank, uint32_t capacity);
+
+// TODO(luca): Remove these from crave.h api
 CRV_API tensor_t*       crv_tensor_find_in_list               (tensor_list_t* list, const char* name);
-CRV_API tensor_list_t*  crv_tensor_load_from_blob             (arena_t* arena, const char* path);
 CRV_API uint32_t        crv_read_u32_le                       (const char** it);
 CRV_API void            crv_read_array                        (const char** it, void* data, size_t bytes);
 CRV_API tensor_t*       crv_tensor_load_from_memory_iterator  (arena_t* arena, const char** it, uint32_t min_capacity);
-CRV_API tensor_list_t*  crv_tensor_load_from_memory           (arena_t* arena, const void* data, size_t size);
-CRV_API tensor_t*       crv_tensor_load_from_stream           (arena_t* arena, FILE* file, uint32_t min_capacity);
-CRV_API tensor_t*       crv_tensor_load_from_file             (arena_t* arena, const char* path, uint32_t min_capacity);
-CRV_API void            crv_tensor_save_to_file               (tensor_t* tensor, char* path);
+CRV_API tensor_list_t*  crv_tensor_load_from_memory           (arena_t* arena, const void* data, uint32_t count);
+
 CRV_API void            crv_tensor_fill                       (tensor_t* tensor, float val);
 CRV_API void            crv_tensor_hann                       (tensor_t* input);
 CRV_API void            crv_tensor_mul                        (tensor_t* tensor, float mul);
@@ -346,10 +345,9 @@ tensor_t* crv_tensor_load_from_memory_iterator(arena_t* arena, const char** it, 
   return tensor;
 }
 
-tensor_list_t* crv_tensor_load_from_memory(arena_t* arena, const void* data, size_t size) {
+tensor_list_t* crv_tensor_load_from_memory(arena_t* arena, const void* data, uint32_t count) {
   const char* it = (const char*)data;
 
-  uint32_t count = crv_read_u32_le(&it);
   tensor_list_t* list = (tensor_list_t*)crv_arena_alloc(arena, sizeof(tensor_list_t*));
   list->tensors = (tensor_t**)crv_arena_alloc(arena, count * sizeof(tensor_t*));
   list->count = count;
@@ -359,215 +357,6 @@ tensor_list_t* crv_tensor_load_from_memory(arena_t* arena, const void* data, siz
   }
 
   return list;
-}
-
-tensor_t* crv_tensor_load_from_stream(arena_t* arena, FILE* file, uint32_t min_capacity) {
-  // FORMAT [name_len (uint32_t)] [name (char * name_len)]
-  // [rank (uint32_t)] [dims (uint32_t * rank)]
-  // [item_count (uint32_t)] [data (float * item_count)]
-
-  assert(file != NULL);
-
-  uint32_t name_len;
-  int result = fread(&name_len, sizeof(uint32_t), 1, file);
-  if (result != 1) {
-    return NULL;
-  }
-
-  char* name = (char*)crv_arena_alloc(arena, name_len);
-  result = fread(name, sizeof(char), name_len, file);
-  if (result != (int)name_len) {
-    return NULL;
-  }
-
-  uint32_t rank;
-  result = fread(&rank, sizeof(uint32_t), 1, file);
-  if (result != 1) {
-    return NULL;
-  }
-
-  uint32_t dims[CRV_MAX_RANK];
-  result = fread(dims, sizeof(uint32_t), rank, file);
-  if (result != (int)rank) {
-    return NULL;
-  }
-
-  uint32_t item_count;
-  result = fread(&item_count, sizeof(uint32_t), 1, file);
-  if (result != 1) {
-    return NULL;
-  }
-
-  uint32_t capacity = item_count < min_capacity ? min_capacity : item_count;
-  tensor_t* tensor = crv_tensor_create(arena, dims, rank, capacity);
-  if (tensor == NULL) {
-    return NULL;
-  }
-
-  result = fread(tensor->data, sizeof(float), item_count, file);
-  if (result != (int)item_count) {
-    return NULL;
-  }
-
-  tensor->name = name;
-
-  return tensor;
-}
-
-tensor_list_t* crv_tensor_load_from_blob(arena_t* arena, const char* path) {
-  assert(path);
-
-  // TODO(luca): Add file.
-  FILE* file = fopen(path, "rb");
-  if (file == NULL) {
-    return NULL;
-  }
-
-  uint32_t count;
-  int result = fread(&count, sizeof(uint32_t), 1, file);
-  if (result != 1) {
-    fclose(file);
-    return NULL;
-  }
-
-  tensor_list_t* list = (tensor_list_t*)crv_arena_alloc(arena, sizeof(tensor_list_t*));
-  list->tensors = (tensor_t**)crv_arena_alloc(arena, count * sizeof(tensor_t*));
-  list->count = count;
-
-  for (int i = 0; i < count; ++i) {
-    list->tensors[i] = crv_tensor_load_from_stream(arena, file, CRV_TENSOR_AUTO_CAP);
-  }
-
-  fclose(file);
-  return list;
-}
-
-tensor_t* crv_tensor_load_from_file(arena_t* arena, const char* path, uint32_t min_capacity) {
-  // FORMAT [name_len (uint32_t)] [name (char * name_len)]
-  // [rank (uint32_t)] [dims (uint32_t * rank)]
-  // [item_count (uint32_t)] [data (float * item_count)]
-
-  assert(path != NULL);
-
-  // TODO(luca): See if it is possible to lock file while reading/writing.
-  // TODO(luca): Check that the size of the reads matches the expected size.
-  // TODO(luca): We still want to use size_t.
-  // TODO(luca): We want to ensure that the data is packed as uint and not int
-  // in the Python script.
-  // TODO(luca): Add better error logging.
-  FILE* file = fopen(path, "rb");
-  if (file == NULL) {
-    return NULL;
-  }
-
-  uint32_t name_len;
-  int result = fread(&name_len, sizeof(uint32_t), 1, file);
-  if (result != 1) {
-    fclose(file);
-    return NULL;
-  }
-
-  char* name = (char*)crv_arena_alloc(arena, name_len);
-  result = fread(name, sizeof(char), name_len, file);
-  if (result != name_len) {
-    fclose(file);
-    return NULL;
-  }
-
-  uint32_t rank;
-  result = fread(&rank, sizeof(uint32_t), 1, file);
-  if (result != 1) {
-    fclose(file);
-    return NULL;
-  }
-
-  uint32_t dims[CRV_MAX_RANK];
-  result = fread(dims, sizeof(uint32_t), rank, file);
-  if (result != rank) {
-    fclose(file);
-    return NULL;
-  }
-
-  uint32_t item_count;
-  result = fread(&item_count, sizeof(uint32_t), 1, file);
-  if (result != 1) {
-    fclose(file);
-    return NULL;
-  }
-
-  uint32_t capacity = item_count < min_capacity ? min_capacity : item_count;
-  tensor_t* tensor = crv_tensor_create(arena, dims, rank, capacity);
-  if (tensor == NULL) {
-    fclose(file);
-    return NULL;
-  }
-
-  result = fread(tensor->data, sizeof(float), item_count, file);
-  if (result != item_count) {
-    fclose(file);
-    return NULL;
-  }
-
-  fclose(file);
-  tensor->name = name;
-
-  return tensor;
-}
-
-void crv_tensor_save_to_file(tensor_t* tensor, char* path) {
-  // FORMAT [name_len (uint32_t)] [name (char * name_len)]
-  // [rank (uint32_t)] [dims (uint32_t * rank)]
-  // [item_count (uint32_t)] [data (float * item_count)]
-
-  CRV_DO_INTERNAL(
-    crv_validate_tensor(tensor);
-    assert(path != NULL);
-  );
-
-  FILE* file = fopen(path, "wb");
-  if (file == NULL) {
-    return;
-  }
-
-  uint32_t name_len = strlen(tensor->name) + 1;
-
-  int result = fwrite(&name_len, sizeof(uint32_t), 1, file);
-  if (result != 1) {
-    fclose(file);
-    return;
-  }
-
-  result = fwrite(tensor->name, sizeof(char), name_len, file);
-  if (result != name_len) {
-    fclose(file);
-    return;
-  }
-
-  result = fwrite(&tensor->rank, sizeof(uint32_t), 1, file);
-  if (result != 1) {
-    fclose(file);
-    return;
-  }
-
-  result = fwrite(tensor->dims, sizeof(uint32_t), tensor->rank, file);
-  if (result != tensor->rank) {
-    fclose(file);
-    return;
-  }
-
-  result = fwrite(&tensor->count, sizeof(uint32_t), 1, file);
-  if (result != 1) {
-    fclose(file);
-    return;
-  }
-
-  result = fwrite(tensor->data, sizeof(float), tensor->count, file);
-  if (result != tensor->count) {
-    fclose(file);
-    return;
-  }
-
-  fclose(file);
 }
 
 void crv_tensor_fill(tensor_t* tensor, float val) {
