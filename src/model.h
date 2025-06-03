@@ -15,6 +15,10 @@ typedef struct {
   uint32_t num_tensors;
 } header_t;
 
+void model_get_header_from_memory(header_t* dest, void* src) {
+  memcpy(dest, src, sizeof(header_t));
+}
+
 typedef struct {
   tensor_t* noise;
   tensor_t* latent_pca;
@@ -57,13 +61,7 @@ typedef struct {
   tensor_t* skip;
 } v1_model_t;
 
-header_t model_get_header_from_memory(void* memory) {
-  header_t header = {};
-  memcpy(&header, memory, sizeof(header_t));
-  return header;
-}
-
-int v1_load(arena_t* arena, v1_model_t * model, tensor_list_t* list) {
+int v1_load(char** dest, v1_model_t * model, tensor_list_t* list) {
   model->noise                                            = crv_tensor_find_in_list(list, "pre_process_latent_noise");
   model->latent_pca                                       = crv_tensor_find_in_list(list, "pre_process_latent_latent_pca");
   model->latent_mean                                      = crv_tensor_find_in_list(list, "pre_process_latent_latent_mean");
@@ -140,8 +138,9 @@ int v1_load(arena_t* arena, v1_model_t * model, tensor_list_t* list) {
   if (model->net_20_alpha == NULL)                                      return MODEL_LOAD_ERROR;
   if (model->net_21_weight == NULL)                                     return MODEL_LOAD_ERROR;
 
-  model->skip = crv_tensor_create(arena, CRV_TPL(1), 2 * 1024);
-  model->mask = crv_tensor_create(arena, CRV_TPL(1, 16, 128), CRV_TENSOR_AUTO_CAP);
+  model->skip = crv_tensor_create_(dest, CRV_TPL(2, 1024), CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
+  model->mask = crv_tensor_create_(dest, CRV_TPL(1, 16, 128), CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
+
   crv_tensor_fill(model->mask, 1.f);
 
   size_t channels = model->mask->dims[1];
@@ -153,6 +152,9 @@ int v1_load(arena_t* arena, v1_model_t * model, tensor_list_t* list) {
       model->mask->data[idx] = -1; 
     }
   }
+
+  model->latent_pca->swap = (float*)*dest;
+  *dest += model->latent_pca->count * sizeof(float);
 
   crv_tensor_unsqueeze(model->latent_pca, model->latent_pca->rank);
   crv_tensor_transpose(model->latent_pca, 0, 1);
@@ -677,6 +679,7 @@ void v2_load_weights(arena_t* arena, v2_model_t* w, tensor_list_t* list) {
       w->mask->data[idx] = -1; 
     }
   }
+
 
   crv_tensor_unsqueeze(w->latent_pca, w->latent_pca->rank);
   crv_tensor_transpose(w->latent_pca, 0, 1);

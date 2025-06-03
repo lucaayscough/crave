@@ -4,6 +4,9 @@
 #include <assert.h>
 #include <string.h>
 
+#define CRV_IMPLEMENTATION
+#include "model.h"
+
 int main(int argc, char* argv[]) {
   if (strcmp(argv[1], "-h") == 0) {
     printf("Usage:\n");
@@ -73,15 +76,6 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "Missing sample_rate: -h for help.\n"); 
     return 0;
   }
-
-  typedef struct {
-    uint64_t size;
-    uint64_t config;
-    uint32_t block_size;
-    uint32_t num_latents;
-    uint32_t sample_rate;
-    uint32_t num_tensors;
-  } header_t;
 
   header_t header;
   header.size = sizeof(header_t);

@@ -23,6 +23,8 @@
 #define CRV_FRONT 0
 #define CRV_BACK 1
 #define CRV_MAX (1ULL << 48)
+#define CRV_NO_SWAP 0
+#define CRV_SWAP 1
 
 #if __clang__
 #define CRV_MAYBE_UNUSED __attribute__((unused))
@@ -68,19 +70,22 @@ CRV_API inline void     crv_print_avg_runtime_ms              (clock_t start, ui
 
 CRV_API inline void     crv_mm                                (float* dest, float* A, float* B, size_t cols, size_t rows, size_t len);
 
+#ifdef CRV_INTERNAL
 CRV_API inline void     crv_validate_tensor                   (tensor_t* input);
+#endif
+
 CRV_API inline void     crv_get_tensor_strides                (tensor_t* input, size_t* strides);
 CRV_API inline size_t   crv_get_tensor_last_dim_index         (tensor_t* input);
 CRV_API inline size_t   crv_get_tensor_last_dim_size          (tensor_t* input);
 
+CRV_API size_t          crv_tensor_get_alloc_size_for_shape   (uint32_t* dims, uint32_t rank, int swap);
 CRV_API tensor_t*       crv_tensor_create                     (arena_t* arena, uint32_t* dims, uint32_t rank, uint32_t capacity);
 
-// TODO(luca): Remove these from crave.h api
 CRV_API tensor_t*       crv_tensor_find_in_list               (tensor_list_t* list, const char* name);
 CRV_API uint32_t        crv_read_u32_le                       (const char** it);
 CRV_API void            crv_read_array                        (const char** it, void* data, size_t bytes);
-CRV_API tensor_t*       crv_tensor_load_from_memory_iterator  (arena_t* arena, const char** it, uint32_t min_capacity);
-CRV_API tensor_list_t*  crv_tensor_load_from_memory           (arena_t* arena, const void* data, uint32_t count);
+CRV_API tensor_t*       crv_tensor_load_from_memory_iterator  (char** dest_it, const char** src_it);
+CRV_API tensor_list_t*  crv_tensor_load_from_memory           (char** dest_it, const void* src, size_t count);
 
 CRV_API void            crv_tensor_fill                       (tensor_t* tensor, float val);
 CRV_API void            crv_tensor_hann                       (tensor_t* input);
@@ -209,11 +214,10 @@ void crv_mm(float* dest, float* A, float* B, size_t cols, size_t rows, size_t le
   }
 }
 
-#ifdef INTERNAL
+#ifdef CRV_INTERNAL
 void crv_validate_tensor(tensor_t* input) {
   assert(input != NULL);
   assert(input->data != NULL);
-  assert(input->swap != NULL);
   assert(input->rank > 0);
   assert(input->rank <= CRV_MAX_RANK);
   assert(input->count > 0);
@@ -256,6 +260,54 @@ size_t crv_get_tensor_last_dim_size(tensor_t* input) {
   );
 
   return input->dims[crv_get_tensor_last_dim_index(input)];
+}
+
+size_t crv_tensor_get_alloc_size_for_shape(uint32_t* dims, uint32_t rank, int swap) {
+  size_t size = 1;
+  for (size_t i = 0; i < rank; ++i) {
+    size *= dims[i];
+  }
+
+  if (swap == CRV_SWAP) {
+    size *= 2;
+  }
+
+  return size * sizeof(float) + sizeof(tensor_t);
+}
+
+tensor_t* crv_tensor_create_(char** dest, uint32_t* dims, uint32_t rank, uint32_t capacity, int swap) {
+  assert(dest);
+  assert(rank > 0);
+  assert(dims != NULL);
+
+  tensor_t* tensor = (tensor_t*)*dest;
+  *dest += sizeof(tensor_t);
+
+  tensor->rank = rank;
+  tensor->count = 1;
+
+  for (uint32_t i = 0; i < rank; ++i) {
+    assert(dims[i]);
+    tensor->dims[i] = dims[i];
+    tensor->count *= dims[i];
+  }
+
+  if (capacity == CRV_TENSOR_AUTO_CAP) {
+    tensor->cap = tensor->count;
+  } else {
+    tensor->cap = capacity;
+    assert(tensor->count <= capacity);
+  }
+
+  tensor->data = (float*)*dest;
+  *dest += tensor->cap * sizeof(float);
+
+  if (swap == CRV_SWAP) {
+    tensor->swap = (float*)*dest;
+    *dest += tensor->cap * sizeof(float);
+  }
+
+  return tensor;
 }
 
 tensor_t* crv_tensor_create(arena_t* arena, uint32_t* dims, uint32_t rank, uint32_t capacity) {
@@ -325,35 +377,39 @@ void crv_read_array(const char** it, void* data, size_t bytes) {
   *it += bytes;
 }
 
-tensor_t* crv_tensor_load_from_memory_iterator(arena_t* arena, const char** it, uint32_t min_capacity) {
-  uint32_t name_len = crv_read_u32_le(it);
-  char* name = (char*)crv_arena_alloc(arena, name_len * sizeof(char));
-  crv_read_array(it, name, name_len * sizeof(*name));
+tensor_t* crv_tensor_load_from_memory_iterator(char** dest_it, const char** src_it) {
+  uint32_t name_len = crv_read_u32_le(src_it);
 
-  uint32_t rank = crv_read_u32_le(it);
+  char* name = (char*)*dest_it;
+  *dest_it += name_len * sizeof(char);
+  crv_read_array(src_it, name, name_len * sizeof(*name));
+
+  uint32_t rank = crv_read_u32_le(src_it);
   uint32_t dims[CRV_MAX_RANK];
-  crv_read_array(it, dims, rank * sizeof(dims[0]));
+  crv_read_array(src_it, dims, rank * sizeof(dims[0]));
 
-  uint32_t item_count = crv_read_u32_le(it);
+  uint32_t item_count = crv_read_u32_le(src_it);
 
-  uint32_t capacity = item_count < min_capacity ? min_capacity : item_count;
-  tensor_t* tensor = crv_tensor_create(arena, dims, rank, capacity);
-  crv_read_array(it, tensor->data, item_count * sizeof(*tensor->data));
+  tensor_t* tensor = crv_tensor_create_(dest_it, dims, rank, CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
+  crv_read_array(src_it, tensor->data, item_count * sizeof(*tensor->data));
 
   tensor->name = name;
 
   return tensor;
 }
 
-tensor_list_t* crv_tensor_load_from_memory(arena_t* arena, const void* data, uint32_t count) {
-  const char* it = (const char*)data;
+tensor_list_t* crv_tensor_load_from_memory(char** dest_it, const void* src, size_t count) {
+  const char* src_it = (const char*)src;
 
-  tensor_list_t* list = (tensor_list_t*)crv_arena_alloc(arena, sizeof(tensor_list_t*));
-  list->tensors = (tensor_t**)crv_arena_alloc(arena, count * sizeof(tensor_t*));
+  tensor_list_t* list = (tensor_list_t*)*dest_it;
+  *dest_it += sizeof(tensor_list_t*);
+
+  list->tensors = (tensor_t**)*dest_it;
+  *dest_it += count * sizeof(tensor_t*);
   list->count = count;
 
   for (int i = 0; i < count; ++i) {
-    list->tensors[i] = crv_tensor_load_from_memory_iterator(arena, &it, CRV_TENSOR_AUTO_CAP);
+    list->tensors[i] = crv_tensor_load_from_memory_iterator(dest_it, &src_it);
   }
 
   return list;
