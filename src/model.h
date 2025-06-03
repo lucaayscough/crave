@@ -1,6 +1,5 @@
 #ifndef MODEL_H
 #define MODEL_H
-
 #define MODEL_LOAD_ERROR 0
 #define MODEL_LOAD_SUCCESS 1
 
@@ -141,6 +140,15 @@ typedef struct {
   tensor_t* scratch_2;
 } v2_model_t;
 
+typedef struct {
+  header_t header;
+
+  union {
+    v1_model_t v1;
+    v2_model_t v2;
+  };
+} model_t;
+
 int model_load_file_into_memory(void* dest, char* filepath, size_t* size) {
   int result = MODEL_LOAD_ERROR;
 
@@ -175,105 +183,105 @@ void model_get_header_from_memory(header_t* dest, void* src) {
   memcpy(dest, src, sizeof(header_t));
 }
 
-int v1_load(char** dest, v1_model_t * model, tensor_list_t* list) {
-  model->noise                                            = crv_tensor_find_in_list(list, "pre_process_latent_noise");
-  model->latent_pca                                       = crv_tensor_find_in_list(list, "pre_process_latent_latent_pca");
-  model->latent_mean                                      = crv_tensor_find_in_list(list, "pre_process_latent_latent_mean");
-  model->pqmf_inverse_conv_weight                         = crv_tensor_find_in_list(list, "pqmf.inverse_conv.weight");
-  model->net_0_weight                                     = crv_tensor_find_in_list(list, "decoder.net.0.weight");
-  model->net_1_alpha                                      = crv_tensor_find_in_list(list, "decoder.net.1.alpha");
-  model->net_2_weight                                     = crv_tensor_find_in_list(list, "decoder.net.2.weight");
-  model->decoder_net_3_aligned_branches_0_net_1_weight    = crv_tensor_find_in_list(list, "decoder.net.3.aligned.branches.0.net.1.weight");
-  model->decoder_net_3_aligned_branches_0_net_3_weight    = crv_tensor_find_in_list(list, "decoder.net.3.aligned.branches.0.net.3.weight");
-  model->decoder_net_4_aligned_branches_0_net_1_weight    = crv_tensor_find_in_list(list, "decoder.net.4.aligned.branches.0.net.1.weight");
-  model->decoder_net_4_aligned_branches_0_net_3_weight    = crv_tensor_find_in_list(list, "decoder.net.4.aligned.branches.0.net.3.weight");
-  model->net_5_alpha                                      = crv_tensor_find_in_list(list, "decoder.net.5.alpha");
-  model->net_6_weight                                     = crv_tensor_find_in_list(list, "decoder.net.6.weight");
-  model->decoder_net_7_aligned_branches_0_net_1_weight    = crv_tensor_find_in_list(list, "decoder.net.7.aligned.branches.0.net.1.weight");
-  model->decoder_net_7_aligned_branches_0_net_3_weight    = crv_tensor_find_in_list(list, "decoder.net.7.aligned.branches.0.net.3.weight");
-  model->decoder_net_8_aligned_branches_0_net_1_weight    = crv_tensor_find_in_list(list, "decoder.net.8.aligned.branches.0.net.1.weight");
-  model->decoder_net_8_aligned_branches_0_net_3_weight    = crv_tensor_find_in_list(list, "decoder.net.8.aligned.branches.0.net.3.weight");
-  model->decoder_net_9_aligned_branches_0_net_1_weight    = crv_tensor_find_in_list(list, "decoder.net.9.aligned.branches.0.net.1.weight");
-  model->decoder_net_9_aligned_branches_0_net_3_weight    = crv_tensor_find_in_list(list, "decoder.net.9.aligned.branches.0.net.3.weight");
-  model->net_10_alpha                                     = crv_tensor_find_in_list(list, "decoder.net.10.alpha");
-  model->net_11_weight                                    = crv_tensor_find_in_list(list, "decoder.net.11.weight");
-  model->decoder_net_12_aligned_branches_0_net_1_weight   = crv_tensor_find_in_list(list, "decoder.net.12.aligned.branches.0.net.1.weight");
-  model->decoder_net_12_aligned_branches_0_net_3_weight   = crv_tensor_find_in_list(list, "decoder.net.12.aligned.branches.0.net.3.weight");
-  model->decoder_net_13_aligned_branches_0_net_1_weight   = crv_tensor_find_in_list(list, "decoder.net.13.aligned.branches.0.net.1.weight");
-  model->decoder_net_13_aligned_branches_0_net_3_weight   = crv_tensor_find_in_list(list, "decoder.net.13.aligned.branches.0.net.3.weight");
-  model->decoder_net_14_aligned_branches_0_net_1_weight   = crv_tensor_find_in_list(list, "decoder.net.14.aligned.branches.0.net.1.weight");
-  model->decoder_net_14_aligned_branches_0_net_3_weight   = crv_tensor_find_in_list(list, "decoder.net.14.aligned.branches.0.net.3.weight");
-  model->net_15_alpha                                     = crv_tensor_find_in_list(list, "decoder.net.15.alpha");
-  model->net_16_weight                                    = crv_tensor_find_in_list(list, "decoder.net.16.weight");
-  model->decoder_net_17_aligned_branches_0_net_1_weight   = crv_tensor_find_in_list(list, "decoder.net.17.aligned.branches.0.net.1.weight");
-  model->decoder_net_17_aligned_branches_0_net_3_weight   = crv_tensor_find_in_list(list, "decoder.net.17.aligned.branches.0.net.3.weight");
-  model->decoder_net_18_aligned_branches_0_net_1_weight   = crv_tensor_find_in_list(list, "decoder.net.18.aligned.branches.0.net.1.weight");
-  model->decoder_net_18_aligned_branches_0_net_3_weight   = crv_tensor_find_in_list(list, "decoder.net.18.aligned.branches.0.net.3.weight");
-  model->decoder_net_19_aligned_branches_0_net_1_weight   = crv_tensor_find_in_list(list, "decoder.net.19.aligned.branches.0.net.1.weight");
-  model->decoder_net_19_aligned_branches_0_net_3_weight   = crv_tensor_find_in_list(list, "decoder.net.19.aligned.branches.0.net.3.weight");
-  model->net_20_alpha                                     = crv_tensor_find_in_list(list, "decoder.net.20.alpha");
-  model->net_21_weight                                    = crv_tensor_find_in_list(list, "decoder.net.21.weight");
+int v1_load(char** dest, v1_model_t* w, tensor_list_t* list) {
+  w->noise                                            = crv_tensor_find_in_list(list, "pre_process_latent_noise");
+  w->latent_pca                                       = crv_tensor_find_in_list(list, "pre_process_latent_latent_pca");
+  w->latent_mean                                      = crv_tensor_find_in_list(list, "pre_process_latent_latent_mean");
+  w->pqmf_inverse_conv_weight                         = crv_tensor_find_in_list(list, "pqmf.inverse_conv.weight");
+  w->net_0_weight                                     = crv_tensor_find_in_list(list, "decoder.net.0.weight");
+  w->net_1_alpha                                      = crv_tensor_find_in_list(list, "decoder.net.1.alpha");
+  w->net_2_weight                                     = crv_tensor_find_in_list(list, "decoder.net.2.weight");
+  w->decoder_net_3_aligned_branches_0_net_1_weight    = crv_tensor_find_in_list(list, "decoder.net.3.aligned.branches.0.net.1.weight");
+  w->decoder_net_3_aligned_branches_0_net_3_weight    = crv_tensor_find_in_list(list, "decoder.net.3.aligned.branches.0.net.3.weight");
+  w->decoder_net_4_aligned_branches_0_net_1_weight    = crv_tensor_find_in_list(list, "decoder.net.4.aligned.branches.0.net.1.weight");
+  w->decoder_net_4_aligned_branches_0_net_3_weight    = crv_tensor_find_in_list(list, "decoder.net.4.aligned.branches.0.net.3.weight");
+  w->net_5_alpha                                      = crv_tensor_find_in_list(list, "decoder.net.5.alpha");
+  w->net_6_weight                                     = crv_tensor_find_in_list(list, "decoder.net.6.weight");
+  w->decoder_net_7_aligned_branches_0_net_1_weight    = crv_tensor_find_in_list(list, "decoder.net.7.aligned.branches.0.net.1.weight");
+  w->decoder_net_7_aligned_branches_0_net_3_weight    = crv_tensor_find_in_list(list, "decoder.net.7.aligned.branches.0.net.3.weight");
+  w->decoder_net_8_aligned_branches_0_net_1_weight    = crv_tensor_find_in_list(list, "decoder.net.8.aligned.branches.0.net.1.weight");
+  w->decoder_net_8_aligned_branches_0_net_3_weight    = crv_tensor_find_in_list(list, "decoder.net.8.aligned.branches.0.net.3.weight");
+  w->decoder_net_9_aligned_branches_0_net_1_weight    = crv_tensor_find_in_list(list, "decoder.net.9.aligned.branches.0.net.1.weight");
+  w->decoder_net_9_aligned_branches_0_net_3_weight    = crv_tensor_find_in_list(list, "decoder.net.9.aligned.branches.0.net.3.weight");
+  w->net_10_alpha                                     = crv_tensor_find_in_list(list, "decoder.net.10.alpha");
+  w->net_11_weight                                    = crv_tensor_find_in_list(list, "decoder.net.11.weight");
+  w->decoder_net_12_aligned_branches_0_net_1_weight   = crv_tensor_find_in_list(list, "decoder.net.12.aligned.branches.0.net.1.weight");
+  w->decoder_net_12_aligned_branches_0_net_3_weight   = crv_tensor_find_in_list(list, "decoder.net.12.aligned.branches.0.net.3.weight");
+  w->decoder_net_13_aligned_branches_0_net_1_weight   = crv_tensor_find_in_list(list, "decoder.net.13.aligned.branches.0.net.1.weight");
+  w->decoder_net_13_aligned_branches_0_net_3_weight   = crv_tensor_find_in_list(list, "decoder.net.13.aligned.branches.0.net.3.weight");
+  w->decoder_net_14_aligned_branches_0_net_1_weight   = crv_tensor_find_in_list(list, "decoder.net.14.aligned.branches.0.net.1.weight");
+  w->decoder_net_14_aligned_branches_0_net_3_weight   = crv_tensor_find_in_list(list, "decoder.net.14.aligned.branches.0.net.3.weight");
+  w->net_15_alpha                                     = crv_tensor_find_in_list(list, "decoder.net.15.alpha");
+  w->net_16_weight                                    = crv_tensor_find_in_list(list, "decoder.net.16.weight");
+  w->decoder_net_17_aligned_branches_0_net_1_weight   = crv_tensor_find_in_list(list, "decoder.net.17.aligned.branches.0.net.1.weight");
+  w->decoder_net_17_aligned_branches_0_net_3_weight   = crv_tensor_find_in_list(list, "decoder.net.17.aligned.branches.0.net.3.weight");
+  w->decoder_net_18_aligned_branches_0_net_1_weight   = crv_tensor_find_in_list(list, "decoder.net.18.aligned.branches.0.net.1.weight");
+  w->decoder_net_18_aligned_branches_0_net_3_weight   = crv_tensor_find_in_list(list, "decoder.net.18.aligned.branches.0.net.3.weight");
+  w->decoder_net_19_aligned_branches_0_net_1_weight   = crv_tensor_find_in_list(list, "decoder.net.19.aligned.branches.0.net.1.weight");
+  w->decoder_net_19_aligned_branches_0_net_3_weight   = crv_tensor_find_in_list(list, "decoder.net.19.aligned.branches.0.net.3.weight");
+  w->net_20_alpha                                     = crv_tensor_find_in_list(list, "decoder.net.20.alpha");
+  w->net_21_weight                                    = crv_tensor_find_in_list(list, "decoder.net.21.weight");
 
-  if (model->noise == NULL)                                             return MODEL_LOAD_ERROR;
-  if (model->latent_pca == NULL)                                        return MODEL_LOAD_ERROR;
-  if (model->latent_mean == NULL)                                       return MODEL_LOAD_ERROR;
-  if (model->pqmf_inverse_conv_weight == NULL)                          return MODEL_LOAD_ERROR;
-  if (model->net_0_weight == NULL)                                      return MODEL_LOAD_ERROR;
-  if (model->net_1_alpha == NULL)                                       return MODEL_LOAD_ERROR;
-  if (model->net_2_weight == NULL)                                      return MODEL_LOAD_ERROR;
-  if (model->decoder_net_3_aligned_branches_0_net_1_weight == NULL)     return MODEL_LOAD_ERROR;
-  if (model->decoder_net_3_aligned_branches_0_net_3_weight == NULL)     return MODEL_LOAD_ERROR;
-  if (model->decoder_net_4_aligned_branches_0_net_1_weight == NULL)     return MODEL_LOAD_ERROR;
-  if (model->decoder_net_4_aligned_branches_0_net_3_weight == NULL)     return MODEL_LOAD_ERROR;
-  if (model->net_5_alpha == NULL)                                       return MODEL_LOAD_ERROR;
-  if (model->net_6_weight == NULL)                                      return MODEL_LOAD_ERROR;
-  if (model->decoder_net_7_aligned_branches_0_net_1_weight == NULL)     return MODEL_LOAD_ERROR;
-  if (model->decoder_net_7_aligned_branches_0_net_3_weight == NULL)     return MODEL_LOAD_ERROR;
-  if (model->decoder_net_8_aligned_branches_0_net_1_weight == NULL)     return MODEL_LOAD_ERROR;
-  if (model->decoder_net_8_aligned_branches_0_net_3_weight == NULL)     return MODEL_LOAD_ERROR;
-  if (model->decoder_net_9_aligned_branches_0_net_1_weight == NULL)     return MODEL_LOAD_ERROR;
-  if (model->decoder_net_9_aligned_branches_0_net_3_weight == NULL)     return MODEL_LOAD_ERROR;
-  if (model->net_10_alpha == NULL)                                      return MODEL_LOAD_ERROR;
-  if (model->net_11_weight == NULL)                                     return MODEL_LOAD_ERROR;
-  if (model->decoder_net_12_aligned_branches_0_net_1_weight == NULL)    return MODEL_LOAD_ERROR;
-  if (model->decoder_net_12_aligned_branches_0_net_3_weight == NULL)    return MODEL_LOAD_ERROR;
-  if (model->decoder_net_13_aligned_branches_0_net_1_weight == NULL)    return MODEL_LOAD_ERROR;
-  if (model->decoder_net_13_aligned_branches_0_net_3_weight == NULL)    return MODEL_LOAD_ERROR;
-  if (model->decoder_net_14_aligned_branches_0_net_1_weight == NULL)    return MODEL_LOAD_ERROR;
-  if (model->decoder_net_14_aligned_branches_0_net_3_weight == NULL)    return MODEL_LOAD_ERROR;
-  if (model->net_15_alpha == NULL)                                      return MODEL_LOAD_ERROR;
-  if (model->net_16_weight == NULL)                                     return MODEL_LOAD_ERROR;
-  if (model->decoder_net_17_aligned_branches_0_net_1_weight == NULL)    return MODEL_LOAD_ERROR;
-  if (model->decoder_net_17_aligned_branches_0_net_3_weight == NULL)    return MODEL_LOAD_ERROR;
-  if (model->decoder_net_18_aligned_branches_0_net_1_weight == NULL)    return MODEL_LOAD_ERROR;
-  if (model->decoder_net_18_aligned_branches_0_net_3_weight == NULL)    return MODEL_LOAD_ERROR;
-  if (model->decoder_net_19_aligned_branches_0_net_1_weight == NULL)    return MODEL_LOAD_ERROR;
-  if (model->decoder_net_19_aligned_branches_0_net_3_weight == NULL)    return MODEL_LOAD_ERROR;
-  if (model->net_20_alpha == NULL)                                      return MODEL_LOAD_ERROR;
-  if (model->net_21_weight == NULL)                                     return MODEL_LOAD_ERROR;
+  if (w->noise == NULL)                                             return MODEL_LOAD_ERROR;
+  if (w->latent_pca == NULL)                                        return MODEL_LOAD_ERROR;
+  if (w->latent_mean == NULL)                                       return MODEL_LOAD_ERROR;
+  if (w->pqmf_inverse_conv_weight == NULL)                          return MODEL_LOAD_ERROR;
+  if (w->net_0_weight == NULL)                                      return MODEL_LOAD_ERROR;
+  if (w->net_1_alpha == NULL)                                       return MODEL_LOAD_ERROR;
+  if (w->net_2_weight == NULL)                                      return MODEL_LOAD_ERROR;
+  if (w->decoder_net_3_aligned_branches_0_net_1_weight == NULL)     return MODEL_LOAD_ERROR;
+  if (w->decoder_net_3_aligned_branches_0_net_3_weight == NULL)     return MODEL_LOAD_ERROR;
+  if (w->decoder_net_4_aligned_branches_0_net_1_weight == NULL)     return MODEL_LOAD_ERROR;
+  if (w->decoder_net_4_aligned_branches_0_net_3_weight == NULL)     return MODEL_LOAD_ERROR;
+  if (w->net_5_alpha == NULL)                                       return MODEL_LOAD_ERROR;
+  if (w->net_6_weight == NULL)                                      return MODEL_LOAD_ERROR;
+  if (w->decoder_net_7_aligned_branches_0_net_1_weight == NULL)     return MODEL_LOAD_ERROR;
+  if (w->decoder_net_7_aligned_branches_0_net_3_weight == NULL)     return MODEL_LOAD_ERROR;
+  if (w->decoder_net_8_aligned_branches_0_net_1_weight == NULL)     return MODEL_LOAD_ERROR;
+  if (w->decoder_net_8_aligned_branches_0_net_3_weight == NULL)     return MODEL_LOAD_ERROR;
+  if (w->decoder_net_9_aligned_branches_0_net_1_weight == NULL)     return MODEL_LOAD_ERROR;
+  if (w->decoder_net_9_aligned_branches_0_net_3_weight == NULL)     return MODEL_LOAD_ERROR;
+  if (w->net_10_alpha == NULL)                                      return MODEL_LOAD_ERROR;
+  if (w->net_11_weight == NULL)                                     return MODEL_LOAD_ERROR;
+  if (w->decoder_net_12_aligned_branches_0_net_1_weight == NULL)    return MODEL_LOAD_ERROR;
+  if (w->decoder_net_12_aligned_branches_0_net_3_weight == NULL)    return MODEL_LOAD_ERROR;
+  if (w->decoder_net_13_aligned_branches_0_net_1_weight == NULL)    return MODEL_LOAD_ERROR;
+  if (w->decoder_net_13_aligned_branches_0_net_3_weight == NULL)    return MODEL_LOAD_ERROR;
+  if (w->decoder_net_14_aligned_branches_0_net_1_weight == NULL)    return MODEL_LOAD_ERROR;
+  if (w->decoder_net_14_aligned_branches_0_net_3_weight == NULL)    return MODEL_LOAD_ERROR;
+  if (w->net_15_alpha == NULL)                                      return MODEL_LOAD_ERROR;
+  if (w->net_16_weight == NULL)                                     return MODEL_LOAD_ERROR;
+  if (w->decoder_net_17_aligned_branches_0_net_1_weight == NULL)    return MODEL_LOAD_ERROR;
+  if (w->decoder_net_17_aligned_branches_0_net_3_weight == NULL)    return MODEL_LOAD_ERROR;
+  if (w->decoder_net_18_aligned_branches_0_net_1_weight == NULL)    return MODEL_LOAD_ERROR;
+  if (w->decoder_net_18_aligned_branches_0_net_3_weight == NULL)    return MODEL_LOAD_ERROR;
+  if (w->decoder_net_19_aligned_branches_0_net_1_weight == NULL)    return MODEL_LOAD_ERROR;
+  if (w->decoder_net_19_aligned_branches_0_net_3_weight == NULL)    return MODEL_LOAD_ERROR;
+  if (w->net_20_alpha == NULL)                                      return MODEL_LOAD_ERROR;
+  if (w->net_21_weight == NULL)                                     return MODEL_LOAD_ERROR;
 
-  model->skip = crv_tensor_create(dest, CRV_TPL(2, 1024), CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
-  model->mask = crv_tensor_create(dest, CRV_TPL(1, 16, 128), CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
+  w->skip = crv_tensor_create(dest, CRV_TPL(2, 1024), CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
+  w->mask = crv_tensor_create(dest, CRV_TPL(1, 16, 128), CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
 
-  crv_tensor_fill(model->mask, 1.f);
+  crv_tensor_fill(w->mask, 1.f);
 
-  size_t channels = model->mask->dims[1];
-  size_t len = model->mask->dims[2];
+  size_t channels = w->mask->dims[1];
+  size_t len = w->mask->dims[2];
   
   for (size_t i = 1; i < channels; i += 2) {
     for (size_t j = 0; j < len; j += 2) {
       size_t idx = i * len + j; 
-      model->mask->data[idx] = -1; 
+      w->mask->data[idx] = -1; 
     }
   }
 
-  model->latent_pca->swap = (float*)*dest;
-  *dest += model->latent_pca->count * sizeof(float);
+  w->latent_pca->swap = (float*)*dest;
+  *dest += w->latent_pca->count * sizeof(float);
 
-  crv_tensor_unsqueeze(model->latent_pca, model->latent_pca->rank);
-  crv_tensor_transpose(model->latent_pca, 0, 1);
-  crv_tensor_unsqueeze(model->latent_mean, 0);
-  crv_tensor_unsqueeze(model->latent_mean, model->latent_mean->rank);
+  crv_tensor_unsqueeze(w->latent_pca, w->latent_pca->rank);
+  crv_tensor_transpose(w->latent_pca, 0, 1);
+  crv_tensor_unsqueeze(w->latent_mean, 0);
+  crv_tensor_unsqueeze(w->latent_mean, w->latent_mean->rank);
 
   return MODEL_LOAD_SUCCESS;
 }
@@ -716,7 +724,7 @@ int v2_load(char** dest, v2_model_t* w, tensor_list_t* list) {
   crv_tensor_transpose(w->latent_pca, 0, 1);
   crv_tensor_unsqueeze(w->latent_mean, 0);
   crv_tensor_unsqueeze(w->latent_mean, w->latent_mean->rank);
-  
+
   return MODEL_LOAD_SUCCESS;
 }
 
@@ -949,6 +957,46 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
   crv_tensor_reshape(z, CRV_TPL(1, 128, 1, 16));
   crv_tensor_permute(z, CRV_TPL(0, 2, 1, 3));
   crv_tensor_reshape(z, CRV_TPL(1, 1, 2048));
+}
+
+int model_load(char** dest, char* src, model_t* model) {
+  int result = MODEL_LOAD_ERROR;
+
+  model_get_header_from_memory(&model->header, src); 
+  header_t* header = &model->header;
+  tensor_list_t* list = crv_tensor_load_from_memory(dest, src + sizeof(header_t), header->num_tensors);
+
+  if (list) {
+    switch (header->config) {
+      case 1:
+        result = v1_load(dest, &model->v1, list);
+        break;
+
+      case 2:
+        result = v2_load(dest, &model->v2, list);
+        break;
+    }
+
+  } else {
+    fprintf(stderr, "Error loading tensor list.\n");
+    result = MODEL_LOAD_ERROR;
+  }
+
+  return result;
+}
+
+void model_decode(tensor_t* z, model_t* model) {
+  header_t* header = &model->header;
+
+  switch (header->config) {
+    case 1:
+      v1_decode(z, &model->v1);
+      break;
+
+    case 2:
+      v2_decode(z, &model->v2);
+      break;
+  }
 }
 
 #endif // MODEL_H

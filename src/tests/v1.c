@@ -9,51 +9,46 @@ int main(int argc, char* argv[]) {
   if (memory) {
     size_t size = 0;
     if (model_load_file_into_memory(memory, argv[1], &size) == MODEL_LOAD_SUCCESS) {
-      header_t header;
-      model_get_header_from_memory(&header, memory); 
-      
-      printf("\n");
-      printf("Model header:\n");
-      printf(" Size:         %llu\n", header.size);
-      printf(" Config:       %llu\n", header.config);
-      printf(" Block size:   %u\n",   header.block_size);
-      printf(" Num latents:  %u\n",   header.num_latents);
-      printf(" Sample rate:  %u\n",   header.sample_rate);
-      printf(" Num tensors:  %u\n",   header.num_tensors);
-      printf("\n");
+      model_t model;
 
-      char* read_ptr = (char*)memory + header.size;
-      char* write_ptr = (char*)memory + size;
+      char* file_data = (char*)memory;
+      char* it = file_data + size;
 
-      tensor_list_t* list = crv_tensor_load_from_memory(&write_ptr, read_ptr, header.num_tensors);
+      if (model_load(&it, file_data, &model) == MODEL_LOAD_SUCCESS) {
 
-      if (list) {
-        v1_model_t model = {};
+        printf("\n");
+        printf("Model header:\n");
+        printf(" Size:         %llu\n", model.header.size);
+        printf(" Config:       %llu\n", model.header.config);
+        printf(" Block size:   %u\n",   model.header.block_size);
+        printf(" Num latents:  %u\n",   model.header.num_latents);
+        printf(" Sample rate:  %u\n",   model.header.sample_rate);
+        printf(" Num tensors:  %u\n",   model.header.num_tensors);
+        printf("\n");
 
-        if (v1_load(&write_ptr, &model, list) == MODEL_LOAD_SUCCESS) {
-          tensor_t* z = crv_tensor_find_in_list(list, "z");
-          assert(z != NULL);
-          tensor_t* y = crv_tensor_find_in_list(list, "y");
-          assert(y != NULL);
+        // NOTE(luca): This is a hack, I just know it's here.
+        tensor_list_t* list = (tensor_list_t*)(file_data + size);
 
-          crv_tensor_print_shape(z);
-          tensor_t* input = crv_tensor_create(&write_ptr, CRV_TPL(16 * 2048), CRV_TENSOR_AUTO_CAP, CRV_SWAP);
+        tensor_t* z = crv_tensor_find_in_list(list, "z");
+        assert(z != NULL);
+        tensor_t* y = crv_tensor_find_in_list(list, "y");
+        assert(y != NULL);
 
-          clock_t start = clock();
+        crv_tensor_print_shape(z);
+        tensor_t* input = crv_tensor_create(&it, CRV_TPL(16 * 2048), CRV_TENSOR_AUTO_CAP, CRV_SWAP);
 
-          crv_tensor_copy(input, z);
-          v1_decode(input, &model);
+        clock_t start = clock();
 
-          crv_tensor_print_error_stats(input, y);
-          printf("\n");
-          crv_print_runtime_ms(start);
-          printf("\n");
+        crv_tensor_copy(input, z);
+        model_decode(input, &model);
 
-        } else {
-          fprintf(stderr, "Failed to load model.\n");
-        }
+        crv_tensor_print_error_stats(input, y);
+        printf("\n");
+        crv_print_runtime_ms(start);
+        printf("\n");
+        
       } else {
-        fprintf(stderr, "Error loading tensor list.\n");
+        fprintf(stderr, "Error loading model.\n");
       }
     } else {
       fprintf(stderr, "Error reading data from file.\n");
