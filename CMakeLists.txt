@@ -8,6 +8,3 @@ target_include_directories(crave INTERFACE src)
 if(UNIX)
   target_link_libraries(crave INTERFACE m)
 endif()
-
-add_executable(main src/main.c)
-target_link_libraries(main PUBLIC crave)
