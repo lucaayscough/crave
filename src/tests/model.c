@@ -2,9 +2,8 @@
 #include "../model.h"
 
 int main(int argc, char* argv[]) {
-
   printf("\n");
-  printf("Testing Model V2\n");
+  printf("Testing Model V1\n");
 
   void* memory = malloc(150 * CRV_MB);
   if (memory) {

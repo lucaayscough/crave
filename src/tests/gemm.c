@@ -1,150 +1,270 @@
-// NOTE(luca): clang src/tests/gemm.c -g -O3 -framework Accelerate -DACCELERATE_NEW_LAPACK -DACCELERATE_LAPACK_ILP64 -o out/test_gemm && out/test_gemm
-// NOTE(luca): C[m * n], A[m * k], B[k * n]
-
 #define CRV_IMPLEMENTATION
-
 #include "../crave.h"
+
+#include <stdalign.h>
+#include <time.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 #include <omp.h>
-#include <Accelerate/Accelerate.h>
 
-#define MAX_N 2048
-#define SIZE MAX_N * MAX_N
+#ifdef __APPLE__
+ #define ACCELERATE_NEW_LAPACK
+ #define ACCELERATE_LAPACK_ILP64
+ #include <Accelerate/Accelerate.h>
+ #define VALIDATE
+#endif
 
-#define T 64 
-#define S 4
+void test(size_t m, size_t n, size_t k) {
 
-void crv_gepp(float* C, const float* A, const float* B, size_t m, size_t n, size_t k) {
-  for (size_t i = 0; i < m; ++i) {
-    for (size_t p = 0; p < k; ++p) {
-      for (size_t j = 0; j < n; ++j) {
-        C[i * n + j] += A[i * k + p] * B[p * n + j];
-      }
-    }
+  float* A = (float*)malloc(m * k * sizeof(float));
+  float* B = (float*)malloc(k * n * sizeof(float));
+  float* C1 = (float*)malloc(m * n * sizeof(float));
+  float* C2 = (float*)malloc(m * n * sizeof(float));
+   
+  for (size_t i = 0; i < m * k; ++i) {
+    A[i] = (float)rand() / (float)RAND_MAX;
   }
-}
 
-void crv_gemm_tile(float* C, const float* A, const float* B, size_t m, size_t n, size_t k) {
-  float A_[S * T];
-  float B_[T * S];
-  float C_[S * S];
-
-  for (size_t i = 0; i < m; i += S) {
-    for (size_t j = 0; j < n; j += S) {
-      memset(C_, 0, sizeof(float) * S * S);
-
-      for (size_t p = 0; p < k; p += T) {
-        size_t A_idx = (i * k) + p;
-        size_t B_idx = (p * n) + j;
-
-        for (size_t _i = 0; _i < S; ++_i) {
-          memcpy(A_ + _i * T, A + A_idx + _i * k, sizeof(float) * T);
-        }
-
-        for (size_t _p = 0; _p < T; ++_p) {
-          memcpy(B_ + _p * S, B + B_idx + _p * n, sizeof(float) * S);
-        }
-
-        crv_gepp(C_, A_, B_, S, S, T);
-      }
-
-      size_t C_idx = (i * n) + j;
-      for (size_t _i = 0; _i < S; ++_i) {
-        for (size_t _j = 0; _j < S; ++_j) {
-          C[C_idx + _i * n + _j] += C_[_i * S + _j];
-        }
-      }
-    }
+  for (size_t i = 0; i < k * n; ++i) {
+    B[i] = (float)rand() / (float)RAND_MAX;
   }
-}
 
-void crv_gemm(float* C, const float* A, const float* B, size_t m, size_t n, size_t k) {
-  float A_[T * T];
-  float B_[T * T];
-  float C_[T * T];
+  memset(C1, 0, m * n * sizeof(float));
+  memset(C2, 0, m * n * sizeof(float));
 
-  for (size_t i = 0; i < m; i += T) {
-    for (size_t j = 0; j < n; j += T) {
-      memset(C_, 0, sizeof(float) * T * T);
+  struct timespec start, end;
+  clock_gettime(CLOCK_MONOTONIC, &start);
+  crv_gemm(C1, n, A, k, B, n, m, n, k);
+  clock_gettime(CLOCK_MONOTONIC, &end);
+  
+  {
+    double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+    double gflops = (2.0 * m * n * k) / elapsed * 1e-9;
 
-      for (size_t p = 0; p < k; p += T) {
-        size_t A_idx = (i * k) + p;
-        size_t B_idx = (p * n) + j;
-
-        for (size_t _i = 0; _i < T; ++_i) {
-          memcpy(A_ + _i * T, A + A_idx + _i * k, sizeof(float) * T);
-        }
-
-        for (size_t _p = 0; _p < T; ++_p) {
-          memcpy(B_ + _p * T, B + B_idx + _p * n, sizeof(float) * T);
-        }
-
-        crv_gemm_tile(C_, A_, B_, T, T, T);
-      }
-
-      size_t C_idx = (i * n) + j;
-      for (size_t _i = 0; _i < T; ++_i) {
-        for (size_t _j = 0; _j < T; ++_j) {
-          C[C_idx + _i * n + _j] += C_[_i * T + _j];
-        }
-      }
-    }
+    char buf[32]; memset(buf, 0x20, 32);
+    int len = sprintf(buf, "[m: %zu, n: %zu, k: %zu]", m, n, k); buf[len] = 0x20; buf[31] = 0;
+    printf("%s %.1f GFLOPS\n", buf, gflops);
   }
+
+#ifdef VALIDATE
+  BLASSetThreading(BLAS_THREADING_SINGLE_THREADED);
+
+  clock_gettime(CLOCK_MONOTONIC, &start);
+  cblas_sgemm(
+    CblasRowMajor, CblasNoTrans, CblasNoTrans,
+    m, n, k,
+    1.0f,
+    A, k,
+    B, n,
+    1.0f,
+    C2, n
+  );
+  clock_gettime(CLOCK_MONOTONIC, &end);
+
+  //{
+  //  double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+  //  double gflops = (2.0 * m * n * k) / elapsed * 1e-9;
+
+  //  char buf[32]; memset(buf, 0x20, 32);
+  //  int len = sprintf(buf, "[m: %zu, n: %zu, k: %zu]", m, n, k); buf[len] = 0x20; buf[31] = 0;
+  //  printf("%s %.1f GFLOPS\n", buf, gflops);
+  //}
+
+  float error = 0;
+  for (size_t i = 0; i < m * n; ++i) {
+    error += fabs(C1[i] - C2[i]);
+  }
+
+  if (error > 0.f) {
+    fprintf(stderr, "[m: %zu, n: %zu, k: %zu] L1 error: %.12f\n", m, n, k, error);
+  }
+#endif
+
+  free(A);
+  free(B);
+  free(C1);
+  free(C2);
 }
 
 int main() {
   srand(0);
 
-  clock_t start;
+  printf("\n");
+  test(768, 2, 2304);
+  test(768, 2, 768);
+  test(768, 2, 2304);
+  test(768, 2, 768);
+  test(384, 8, 1152);
+  test(384, 8, 384);
+  test(384, 8, 1152);
+  test(384, 8, 384);
+  test(384, 8, 1152);
+  test(384, 8, 384);
 
-  float* A = (float*)malloc(SIZE * sizeof(float));
-  float* B = (float*)malloc(SIZE * sizeof(float));
-  float* C1 = (float*)malloc(SIZE * sizeof(float));
-  float* C2 = (float*)malloc(SIZE * sizeof(float));
-  
-  for (size_t i = T; i <= MAX_N; i *= 2) {
-    printf("Testing %zux%zu\n", i, i);
-
-    for (size_t j = 0; j < SIZE; ++j) {
-      A[j] = (float)rand() / (float)RAND_MAX;
-      B[j] = (float)rand() / (float)RAND_MAX;
-      C1[j] = 0;
-      C2[j] = 0;
-    }
-
-    printf("Mine:\n");
-    start = clock();  
-    crv_gemm_tile(C1, A, B, i, i, i);
-    crv_print_runtime_ms(start);
-
-    printf("Accelerate:\n");
-    start = clock();
-
-    cblas_sgemm(
-      CblasRowMajor, CblasNoTrans, CblasNoTrans,
-      i, i, i,
-      1.0f,
-      A, i,
-      B, i,
-      1.0f,
-      C2, i
-    );
-
-    crv_print_runtime_ms(start);
-
-    // VALIDATE
-    float error = 0;
-    for (size_t j = 0; j < i * i; ++j) {
-      error += fabs(C1[j] - C2[j]);
-    }
-
-    printf("l1 error: %f\n", error);
-    printf("\n");
-  }
-  
-  free(A);
-  free(B);
-  free(C1);
-  free(C2);
+  test(1, 1, 1);
+  test(2, 3, 4);
+  test(32, 32, 33);
+  test(33, 32, 33);
+  test(33, 34, 33);
+  test(128, 128, 128);
+  test(127, 128, 128);
+  test(256, 256, 256);
+  test(134, 1239, 2);
+  test(512, 512, 512);
+  test(1024, 1024, 1024);
+  test(2048, 2048, 2048);
+  test(2041, 2048, 2048);
 
   return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+//#define IMPL_1
+//
+//#ifdef IMPL_0
+//
+//#define BLOCK 4
+//#define BLOCK_M 1
+//#define BLOCK_N 4
+//
+//void kernel_4x16(float* C, const float* A, const float* B, size_t n, size_t k) {
+//  float32x4_t a[4];
+//  float32x4_t b[4];
+//  float32x4_t c[4][4] = {0};
+//
+//  for (size_t p = 0; p < k; ++p) {
+//    b[0] = vld1q_f32(&B[p * n + 0]);
+//    b[1] = vld1q_f32(&B[p * n + 4]);
+//    b[2] = vld1q_f32(&B[p * n + 8]);
+//    b[3] = vld1q_f32(&B[p * n + 12]);
+//
+//    a[0] = vdupq_n_f32(A[k * 0 + p]);
+//    a[1] = vdupq_n_f32(A[k * 1 + p]);
+//    a[2] = vdupq_n_f32(A[k * 2 + p]);
+//    a[3] = vdupq_n_f32(A[k * 3 + p]);
+//
+//    c[0][0] = vfmaq_f32(c[0][0], a[0], b[0]);
+//    c[0][1] = vfmaq_f32(c[0][1], a[0], b[1]);
+//    c[0][2] = vfmaq_f32(c[0][2], a[0], b[2]);
+//    c[0][3] = vfmaq_f32(c[0][3], a[0], b[3]);
+//
+//    c[1][0] = vfmaq_f32(c[1][0], a[1], b[0]);
+//    c[1][1] = vfmaq_f32(c[1][1], a[1], b[1]);
+//    c[1][2] = vfmaq_f32(c[1][2], a[1], b[2]);
+//    c[1][3] = vfmaq_f32(c[1][3], a[1], b[3]);
+//
+//    c[2][0] = vfmaq_f32(c[2][0], a[2], b[0]);
+//    c[2][1] = vfmaq_f32(c[2][1], a[2], b[1]);
+//    c[2][2] = vfmaq_f32(c[2][2], a[2], b[2]);
+//    c[2][3] = vfmaq_f32(c[2][3], a[2], b[3]);
+//
+//    c[3][0] = vfmaq_f32(c[3][0], a[3], b[0]);
+//    c[3][1] = vfmaq_f32(c[3][1], a[3], b[1]);
+//    c[3][2] = vfmaq_f32(c[3][2], a[3], b[2]);
+//    c[3][3] = vfmaq_f32(c[3][3], a[3], b[3]);
+//  }
+//
+//  vst1q_f32(&C[n * 0 + 0],  c[0][0]);
+//  vst1q_f32(&C[n * 0 + 4],  c[0][1]);
+//  vst1q_f32(&C[n * 0 + 8],  c[0][2]);
+//  vst1q_f32(&C[n * 0 + 12], c[0][3]);
+//
+//  vst1q_f32(&C[n * 1 + 0],  c[1][0]);
+//  vst1q_f32(&C[n * 1 + 4],  c[1][1]);
+//  vst1q_f32(&C[n * 1 + 8],  c[1][2]);
+//  vst1q_f32(&C[n * 1 + 12], c[1][3]);
+//
+//  vst1q_f32(&C[n * 2 + 0],  c[2][0]);
+//  vst1q_f32(&C[n * 2 + 4],  c[2][1]);
+//  vst1q_f32(&C[n * 2 + 8],  c[2][2]);
+//  vst1q_f32(&C[n * 2 + 12], c[2][3]);
+//
+//  vst1q_f32(&C[n * 3 + 0],  c[3][0]);
+//  vst1q_f32(&C[n * 3 + 4],  c[3][1]);
+//  vst1q_f32(&C[n * 3 + 8],  c[3][2]);
+//  vst1q_f32(&C[n * 3 + 12], c[3][3]);
+//}
+//
+//void gemm(float* C, const float* A, const float* B, size_t m, size_t n, size_t k) {
+////#pragma omp parallel for collapse(1) num_threads(10)
+//
+//  for (size_t i = 0; i < m; i += BLOCK_M * BLOCK) {
+//    for (size_t j = 0; j < n; j += BLOCK_N * BLOCK) {
+//      kernel_4x16(&C[i * n + j], &A[i * k], &B[j], n, k);
+//    }
+//  }
+//  
+//  //for (size_t i = 0; i < m; i += BLOCK_M * BLOCK) {
+//  //  for (size_t j = 0; j < n; j += BLOCK_N * BLOCK) {
+//  //    kernel_4x16(&C[i * n + j], &A[i * k], &B[j], n, k);
+//  //  }
+//  //}
+//}
+//#endif
+//
+//
+//#ifdef IMPL_1
+//
+//#define TILE_M 64
+//#define TILE_N 64
+//#define TILE_K 32
+//
+//#define BLOCK 4
+//#define BLOCK_M 1
+//#define BLOCK_N 4
+//
+////void kernel(float* C, const float* A, const float* B, size_t m, size_t n, size_t k) {
+////  for (size_t i = 0; i < m; i += BLOCK * BLOCK_M) {
+////    for (size_t j = 0; j < n; j += BLOCK * BLOCK_N) {
+////      
+////
+////      for (size_t p = 0; p < k; ++p) {
+////
+////        for (size_t ii = 0; ii < BLOCK * BLOCK_M; ++ii) {
+////          float32x4_t a = vdupq_n_f32(A[(i + ii) * k + p]);
+////
+////          for (size_t jj = 0; jj < BLOCK_N * BLOCK; jj += BLOCK) {
+////            float32x4_t b = vld1q_f32(&B[p * n + (j + jj)]);
+////            float32x4_t c = vld1q_f32(&C[(i + ii) * n + (j + jj)]);
+////
+////            c = vfmaq_f32(c, a, b);
+////
+////            vst1q_f32(&C[(i + ii) * n + (j + jj)], c);
+////          }
+////        }
+////
+////      }
+////    }
+////  }
+////}
+//

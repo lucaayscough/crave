@@ -293,7 +293,9 @@ void v1_decode(tensor_t* z, v1_model_t* w) {
 
   // (0)
   crv_tensor_pad(z, 2, 0);
+  crv_tensor_print_shape(w->net_0_weight);
   crv_tensor_conv1d(z, w->net_0_weight, 1, 1);
+  crv_tensor_init(z, CRV_TPL(1, 256, 1));
 
   // (1)
   crv_tensor_snake(z, w->net_1_alpha);
@@ -454,15 +456,15 @@ void v1_decode(tensor_t* z, v1_model_t* w) {
 }
 
 void v2_cache_slice(tensor_t* cache, tensor_t* input) {
-  size_t input_size = crv_get_tensor_last_dim_size(input);
-  size_t cache_size = crv_get_tensor_last_dim_size(cache);
+  size_t input_size = crv_tensor_get_last_dim_size(input);
+  size_t cache_size = crv_tensor_get_last_dim_size(cache);
 
   size_t start = input_size - cache_size;
   size_t cpy_count = input_size - start;
 
   CRV_DO_INTERNAL(
-    crv_validate_tensor(input);
-    crv_validate_tensor(cache);
+    crv_tensor_validate(input);
+    crv_tensor_validate(cache);
 
     assert(input->rank == cache->rank);
     assert(input->dims[0] == cache->dims[0]);
@@ -471,7 +473,7 @@ void v2_cache_slice(tensor_t* cache, tensor_t* input) {
   );
 
   size_t strides[CRV_MAX_RANK];
-  crv_get_tensor_strides(input, &strides[0]);
+  crv_tensor_get_strides(input, &strides[0]);
 
   size_t stride = strides[1];
   size_t dims = input->dims[1];
@@ -487,14 +489,14 @@ void v2_cache_slice(tensor_t* cache, tensor_t* input) {
 }
 
 void v2_cached_pad(tensor_t* input, tensor_t* cache) {
-  size_t cache_size = crv_get_tensor_last_dim_size(cache);
-  crv_tensor_cat(input, cache, crv_get_tensor_last_dim_index(input), CRV_FRONT);
+  size_t cache_size = crv_tensor_get_last_dim_size(cache);
+  crv_tensor_cat(input, cache, crv_tensor_get_last_dim_index(input), CRV_FRONT);
   v2_cache_slice(cache, input);
   crv_tensor_trunc(input, 0, cache_size);
 }
 
 void v2_cached_conv1d(tensor_t* input, tensor_t* weights, tensor_t* cache, size_t stride, size_t dilation) {
-  crv_tensor_cat(input, cache, crv_get_tensor_last_dim_index(input), CRV_FRONT);
+  crv_tensor_cat(input, cache, crv_tensor_get_last_dim_index(input), CRV_FRONT);
   v2_cache_slice(cache, input);
   crv_tensor_conv1d(input, weights, stride, dilation);
 }
@@ -502,22 +504,22 @@ void v2_cached_conv1d(tensor_t* input, tensor_t* weights, tensor_t* cache, size_
 void v2_cached_conv_transpose1d(tensor_t* input, tensor_t* weights, tensor_t* cache, size_t stride, size_t dilation) {
   crv_tensor_conv_transpose1d(input, weights, stride, dilation);
 
-  size_t cache_size = crv_get_tensor_last_dim_size(cache);
+  size_t cache_size = crv_tensor_get_last_dim_size(cache);
 
   CRV_DO_INTERNAL(
-    crv_validate_tensor(input);
-    crv_validate_tensor(cache);
+    crv_tensor_validate(input);
+    crv_tensor_validate(cache);
 
     assert(input->rank == cache->rank);
     assert(input->dims[0] == cache->dims[0]);
     assert(input->dims[1] == cache->dims[1]);
 
-    size_t input_size = crv_get_tensor_last_dim_size(input);
+    size_t input_size = crv_tensor_get_last_dim_size(input);
     assert(input_size >= cache_size);
   );
 
   size_t strides[CRV_MAX_RANK];
-  crv_get_tensor_strides(input, &strides[0]);
+  crv_tensor_get_strides(input, &strides[0]);
 
   size_t input_stride = strides[1];
   size_t dims = input->dims[1];
