@@ -293,7 +293,6 @@ void v1_decode(tensor_t* z, v1_model_t* w) {
 
   // (0)
   crv_tensor_pad(z, 2, 0);
-  crv_tensor_print_shape(w->net_0_weight);
   crv_tensor_conv1d(z, w->net_0_weight, 1, 1);
   crv_tensor_init(z, CRV_TPL(1, 256, 1));
 
