@@ -2,7 +2,7 @@
 #define MODEL_H
 #define MODEL_LOAD_ERROR 0
 #define MODEL_LOAD_SUCCESS 1
-
+#define CRV_IMPLEMENTATION
 #include "crave.h"
 
 typedef struct {
@@ -540,7 +540,13 @@ void v2_cached_conv_transpose1d(tensor_t* input, tensor_t* weights, tensor_t* ca
 }
 
 int v2_load(char** dest, v2_model_t* w, tensor_list_t* list) {
+#ifdef MODEL_TEST
   w->noise                                              = crv_tensor_find_in_list(list, "pre_process_latent_noise");
+  w->ir_noise                                           = crv_tensor_find_in_list(list, "ir_noise");
+#else
+  w->noise                                              = crv_tensor_create(dest, CRV_TPL(1, 96, 1), CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
+  w->ir_noise                                           = crv_tensor_create(dest, CRV_TPL(1, 16, 16, 8), CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
+#endif
   w->latent_pca                                         = crv_tensor_find_in_list(list, "latent_pca");
   w->latent_mean                                        = crv_tensor_find_in_list(list, "latent_mean");
   w->decoder_net_0_weight                               = crv_tensor_find_in_list(list, "decoder.net.0.weight");
@@ -614,7 +620,6 @@ int v2_load(char** dest, v2_model_t* w, tensor_list_t* list) {
   w->decoder_waveform_module_weight                     = crv_tensor_find_in_list(list, "decoder.waveform_module.weight");
   w->pqmf_inverse_conv_cache_pad                        = crv_tensor_find_in_list(list, "pqmf.inverse_conv.cache.pad");
   w->pqmf_inverse_conv_weight                           = crv_tensor_find_in_list(list, "pqmf.inverse_conv.weight");
-  w->ir_noise                                           = crv_tensor_find_in_list(list, "ir_noise");
 
   assert(w->noise != NULL);
   assert(w->latent_pca != NULL);
@@ -986,6 +991,7 @@ int model_load(char** dest, char* src, model_t* model) {
   return result;
 }
 
+// TODO(luca): model should be first and tensor second.
 void model_decode(tensor_t* z, model_t* model) {
   header_t* header = &model->header;
 
