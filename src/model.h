@@ -808,6 +808,11 @@ void v2_block(tensor_t* input, tensor_t* skip, tensor_t* w0, tensor_t* w1, tenso
 }
 
 void v2_decode(tensor_t* z, v2_model_t* w) {
+#ifndef MODEL_TEST
+  crv_tensor_randn(w->noise);
+  crv_tensor_randn(w->ir_noise);
+#endif
+
   crv_tensor_cat(z, w->noise, 1, CRV_BACK);
   crv_tensor_conv1d(z, w->latent_pca, 1, 1);
   crv_tensor_tadd(z, w->latent_mean);

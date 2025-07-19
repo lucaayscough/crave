@@ -25,6 +25,8 @@
 extern "C" {
 #endif
 
+// TODO(luca): Remove tensor_list_t
+// TODO(luca): Raname tensor_t to crv_tensor_t
 // TODO(luca): Use size_t for some items such as count and cap.
 typedef struct {
   uint32_t cap;
@@ -41,68 +43,73 @@ typedef struct {
   size_t count;
 } tensor_list_t;
 
-CRV_API inline void     crv_gemm_kernel_1x2                   (float* C, float a, const float* B);
-CRV_API inline void     crv_gemm_kernel_1x4                   (float* C, float a, const float* B);
-CRV_API inline void     crv_gemm_kernel_4x2                   (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t k);
-CRV_API inline void     crv_gemm_kernel_4x8                   (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t k);
-CRV_API inline void     crv_gemm_kernel_4x16                  (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t k);
-CRV_API inline void     crv_gemm_kernel_n                     (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t m, size_t n, size_t k);
-CRV_API inline void     crv_gemm_l1                           (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t m, size_t n, size_t k);
-CRV_API inline void     crv_gemm                              (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t m, size_t n, size_t k);
+typedef struct {
+  float v[2];
+} crv_randn_t;
 
-CRV_API inline void     crv_print_runtime_ms                  (clock_t start);
-CRV_API inline void     crv_print_avg_runtime_ms              (clock_t start, uint32_t iters);
-CRV_API inline void*    crv_ptr_align                         (void* ptr, size_t alignment);
-CRV_API inline void     crv_randn                             (float* dest);
-CRV_API uint32_t        crv_read_u32_le                       (const char** it);
-CRV_API void            crv_read_array                        (const char** it, void* data, size_t bytes);
+CRV_API inline void           crv_gemm_kernel_1x2                   (float* C, float a, const float* B);
+CRV_API inline void           crv_gemm_kernel_1x4                   (float* C, float a, const float* B);
+CRV_API inline void           crv_gemm_kernel_4x2                   (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t k);
+CRV_API inline void           crv_gemm_kernel_4x8                   (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t k);
+CRV_API inline void           crv_gemm_kernel_4x16                  (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t k);
+CRV_API inline void           crv_gemm_kernel_n                     (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t m, size_t n, size_t k);
+CRV_API inline void           crv_gemm_l1                           (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t m, size_t n, size_t k);
+CRV_API inline void           crv_gemm                              (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t m, size_t n, size_t k);
 
-CRV_API inline void     crv_tensor_validate                   (tensor_t* tensor);
-CRV_API inline void     crv_tensor_get_strides                (tensor_t* tensor, size_t* strides);
-CRV_API inline size_t   crv_tensor_get_last_dim_index         (tensor_t* tensor);
-CRV_API inline size_t   crv_tensor_get_last_dim_size          (tensor_t* tensor);
-CRV_API size_t          crv_tensor_get_alloc_size_for_shape   (uint32_t* dims, uint32_t rank, int swap);
-CRV_API tensor_t*       crv_tensor_create                     (char** dest, uint32_t* dims, uint32_t rank, uint32_t capacity, int swap);
-CRV_API void            crv_tensor_init                       (tensor_t* tensor, uint32_t* dims, uint32_t rank);
-CRV_API tensor_t*       crv_tensor_find_in_list               (tensor_list_t* list, const char* name);
-CRV_API tensor_t*       crv_tensor_load_from_memory_iterator  (char** dest_it, const char** src_it);
-CRV_API tensor_list_t*  crv_tensor_load_from_memory           (char** dest_it, const void* src, size_t count);
-CRV_API void            crv_tensor_fill                       (tensor_t* tensor, float val);
-CRV_API void            crv_tensor_hann                       (tensor_t* tensor);
-CRV_API void            crv_tensor_mul                        (tensor_t* tensor, float mul);
-CRV_API void            crv_tensor_tmul                       (tensor_t* dest, tensor_t* src);
-CRV_API void            crv_tensor_tmul_last_dim              (tensor_t* dest, tensor_t* src);
-CRV_API void            crv_tensor_add                        (tensor_t* tensor, float add);
-CRV_API void            crv_tensor_tadd                       (tensor_t* dest, tensor_t* src);
-CRV_API void            crv_tensor_pow                        (tensor_t* tensor, float pow);
-CRV_API void            crv_tensor_arange                     (tensor_t* tensor, float start, float step);
-CRV_API void            crv_tensor_cat                        (tensor_t* dest, tensor_t* src, uint32_t dim, int32_t direction);
-CRV_API void            crv_tensor_pad                        (tensor_t* tensor, size_t left_pad, size_t right_pad);
-CRV_API void            crv_tensor_trunc                      (tensor_t* tensor, uint32_t left_trunc, uint32_t right_trunc);
-CRV_API void            crv_tensor_roll                       (tensor_t* tensor, int32_t shifts, size_t dim);
-CRV_API void            crv_tensor_copy                       (tensor_t* dest, tensor_t* src);
-CRV_API void            crv_tensor_squeeze                    (tensor_t* tensor, uint32_t dim);
-CRV_API void            crv_tensor_unsqueeze                  (tensor_t* tensor, uint32_t dim);
-CRV_API void            crv_tensor_transpose                  (tensor_t* tensor, uint32_t dim1, uint32_t dim2);
-CRV_API void            crv_tensor_permute                    (tensor_t* tensor, uint32_t* dims, uint32_t rank);
-CRV_API void            crv_tensor_flip                       (tensor_t* tensor, uint32_t dim);
-CRV_API void            crv_tensor_snake                      (tensor_t* tensor, tensor_t* alpha);
-CRV_API void            crv_tensor_leaky_relu                 (tensor_t* tensor, float alpha);
-CRV_API void            crv_tensor_sigmoid                    (tensor_t* tensor);
-CRV_API void            crv_tensor_tanh                       (tensor_t* tensor);
-CRV_API void            crv_tensor_split                      (tensor_t* dest, tensor_t* src);
-CRV_API void            crv_tensor_reshape                    (tensor_t* tensor, uint32_t* dims, uint32_t rank);
-CRV_API void            crv_tensor_conv1d                     (tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilation);
-CRV_API void            crv_tensor_conv_transpose1d           (tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilation);
-CRV_API void            crv_tensor_rfft                       (tensor_t* tensor);
-CRV_API void            crv_tensor_irfft                      (tensor_t* tensor);
-CRV_API float           crv_tensor_l1_norm                    (tensor_t* a, tensor_t* b);
-CRV_API float           crv_tensor_mae                        (tensor_t* a, tensor_t* b);
-CRV_API float           crv_tensor_maxae                      (tensor_t* a, tensor_t* b);
-CRV_API void            crv_tensor_print_error_stats          (tensor_t* a, tensor_t* b);
-CRV_API void            crv_tensor_print_shape                (tensor_t* tensor);
-CRV_API void            crv_tensor_print_data                 (tensor_t* tensor);
-CRV_API void            crv_tensor_print                      (tensor_t* tensor);
+CRV_API inline void           crv_print_runtime_ms                  (clock_t start);
+CRV_API inline void           crv_print_avg_runtime_ms              (clock_t start, uint32_t iters);
+CRV_API inline void*          crv_ptr_align                         (void* ptr, size_t alignment);
+CRV_API inline crv_randn_t    crv_randn                             ();
+CRV_API uint32_t              crv_read_u32_le                       (const char** it);
+CRV_API void                  crv_read_array                        (const char** it, void* data, size_t bytes);
+
+CRV_API inline void           crv_tensor_validate                   (tensor_t* tensor);
+CRV_API inline void           crv_tensor_get_strides                (tensor_t* tensor, size_t* strides);
+CRV_API inline size_t         crv_tensor_get_last_dim_index         (tensor_t* tensor);
+CRV_API inline size_t         crv_tensor_get_last_dim_size          (tensor_t* tensor);
+CRV_API size_t                crv_tensor_get_alloc_size_for_shape   (uint32_t* dims, uint32_t rank, int swap);
+CRV_API tensor_t*             crv_tensor_create                     (char** dest, uint32_t* dims, uint32_t rank, uint32_t capacity, int swap);
+CRV_API void                  crv_tensor_init                       (tensor_t* tensor, uint32_t* dims, uint32_t rank);
+CRV_API tensor_t*             crv_tensor_find_in_list               (tensor_list_t* list, const char* name);
+CRV_API tensor_t*             crv_tensor_load_from_memory_iterator  (char** dest_it, const char** src_it);
+CRV_API tensor_list_t*        crv_tensor_load_from_memory           (char** dest_it, const void* src, size_t count);
+CRV_API void                  crv_tensor_fill                       (tensor_t* tensor, float val);
+CRV_API void                  crv_tensor_randn                      (tensor_t* tensor);
+CRV_API void                  crv_tensor_hann                       (tensor_t* tensor);
+CRV_API void                  crv_tensor_mul                        (tensor_t* tensor, float mul);
+CRV_API void                  crv_tensor_tmul                       (tensor_t* dest, tensor_t* src);
+CRV_API void                  crv_tensor_tmul_last_dim              (tensor_t* dest, tensor_t* src);
+CRV_API void                  crv_tensor_add                        (tensor_t* tensor, float add);
+CRV_API void                  crv_tensor_tadd                       (tensor_t* dest, tensor_t* src);
+CRV_API void                  crv_tensor_pow                        (tensor_t* tensor, float pow);
+CRV_API void                  crv_tensor_arange                     (tensor_t* tensor, float start, float step);
+CRV_API void                  crv_tensor_cat                        (tensor_t* dest, tensor_t* src, uint32_t dim, int32_t direction);
+CRV_API void                  crv_tensor_pad                        (tensor_t* tensor, size_t left_pad, size_t right_pad);
+CRV_API void                  crv_tensor_trunc                      (tensor_t* tensor, uint32_t left_trunc, uint32_t right_trunc);
+CRV_API void                  crv_tensor_roll                       (tensor_t* tensor, int32_t shifts, size_t dim);
+CRV_API void                  crv_tensor_copy                       (tensor_t* dest, tensor_t* src);
+CRV_API void                  crv_tensor_squeeze                    (tensor_t* tensor, uint32_t dim);
+CRV_API void                  crv_tensor_unsqueeze                  (tensor_t* tensor, uint32_t dim);
+CRV_API void                  crv_tensor_transpose                  (tensor_t* tensor, uint32_t dim1, uint32_t dim2);
+CRV_API void                  crv_tensor_permute                    (tensor_t* tensor, uint32_t* dims, uint32_t rank);
+CRV_API void                  crv_tensor_flip                       (tensor_t* tensor, uint32_t dim);
+CRV_API void                  crv_tensor_snake                      (tensor_t* tensor, tensor_t* alpha);
+CRV_API void                  crv_tensor_leaky_relu                 (tensor_t* tensor, float alpha);
+CRV_API void                  crv_tensor_sigmoid                    (tensor_t* tensor);
+CRV_API void                  crv_tensor_tanh                       (tensor_t* tensor);
+CRV_API void                  crv_tensor_split                      (tensor_t* dest, tensor_t* src);
+CRV_API void                  crv_tensor_reshape                    (tensor_t* tensor, uint32_t* dims, uint32_t rank);
+CRV_API void                  crv_tensor_conv1d                     (tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilation);
+CRV_API void                  crv_tensor_conv_transpose1d           (tensor_t* x, tensor_t* w, uint32_t stride, uint32_t dilation);
+CRV_API void                  crv_tensor_rfft                       (tensor_t* tensor);
+CRV_API void                  crv_tensor_irfft                      (tensor_t* tensor);
+CRV_API float                 crv_tensor_l1_norm                    (tensor_t* a, tensor_t* b);
+CRV_API float                 crv_tensor_mae                        (tensor_t* a, tensor_t* b);
+CRV_API float                 crv_tensor_maxae                      (tensor_t* a, tensor_t* b);
+CRV_API void                  crv_tensor_print_error_stats          (tensor_t* a, tensor_t* b);
+CRV_API void                  crv_tensor_print_shape                (tensor_t* tensor);
+CRV_API void                  crv_tensor_print_data                 (tensor_t* tensor);
+CRV_API void                  crv_tensor_print                      (tensor_t* tensor);
 
 #ifdef __cplusplus
 } // extern "C"
@@ -272,14 +279,17 @@ void* crv_ptr_align(void* ptr, size_t alignment) {
   return (void*)aligned;
 }
 
-void crv_randn(float* dest) {
+crv_randn_t crv_randn() {
   float u1 = ((float)rand() + 1.f) / ((float)RAND_MAX + 1.f);
   float u2 = ((float)rand() + 1.f) / ((float)RAND_MAX + 1.f);
   float radius = sqrtf(-2.f * logf(u1));
   float theta = 2.f * M_PI * u2;
 
-  dest[0] = radius * cosf(theta);
-  dest[1] = radius * sinf(theta);
+  crv_randn_t result;
+  result.v[0] = radius * cosf(theta);
+  result.v[1] = radius * sinf(theta);
+
+  return result;
 }
 
 uint32_t crv_read_u32_le(const char** it) {
@@ -295,6 +305,8 @@ void crv_read_array(const char** it, void* data, size_t bytes) {
 }
 
 void crv_tensor_validate(tensor_t* tensor) {
+  // TODO(luca): We want better validation.
+
   assert(tensor != NULL);
   assert(tensor->data != NULL);
   assert(tensor->rank > 0);
@@ -465,6 +477,27 @@ void crv_tensor_fill(tensor_t* tensor, float val) {
 
   for (size_t i = 0; i < tensor->count; ++i) {
     tensor->data[i] = val;
+  }
+}
+
+void crv_tensor_randn(tensor_t* tensor) {
+  CRV_DO_INTERNAL(
+    crv_tensor_validate(tensor);
+  );
+
+  crv_randn_t r;
+  size_t i;
+  for (i = 0; i + 2 < tensor->count; i += 2) {
+    r = crv_randn();
+    tensor->data[i + 0] = r.v[0];
+    tensor->data[i + 1] = r.v[1];
+  }
+  r = crv_randn();
+  if (tensor->count - i == 2) {
+    tensor->data[i + 0] = r.v[0];
+    tensor->data[i + 1] = r.v[1];
+  } else {
+    tensor->data[i + 0] = r.v[0];
   }
 }
 
