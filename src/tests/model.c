@@ -1,4 +1,5 @@
 #define MODEL_TEST
+//#define CRV_TENSOR_CONV1D_PRINT_IM2COL_SIZE
 #include "../model.h"
 
 int main(int argc, char* argv[]) {
