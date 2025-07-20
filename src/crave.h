@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdalign.h>
 
-#define CRV_MAX_RANK 6
+#define CRV_TENSOR_MAX_RANK 6
 #define CRV_FRONT 0
 #define CRV_BACK 1
 #define CRV_MAX (1ULL << 48)
@@ -25,7 +25,6 @@
 extern "C" {
 #endif
 
-// TODO(luca): Add function to get size allocations.
 // TODO(luca): Add something like crv_alloc_get_current_size()
 // TODO(luca): Add something like crv_alloc_validate_iter()
 // TODO(luca): Remove tensor_list_t.
@@ -35,7 +34,7 @@ typedef struct {
   size_t cap;
   size_t count;
   size_t rank;
-  size_t dims[CRV_MAX_RANK];
+  size_t dims[CRV_TENSOR_MAX_RANK];
   float* data;
   float* swap;
   char* name;
@@ -61,6 +60,7 @@ CRV_API inline void           crv_gemm_kernel_n                     (float* C, s
 CRV_API inline void           crv_gemm_l1                           (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t m, size_t n, size_t k);
 CRV_API inline void           crv_gemm                              (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t m, size_t n, size_t k);
 
+CRV_API inline size_t         crv_alloc_get_size                    (const char* end, const char* begin);
 CRV_API inline void           crv_print_runtime_ms                  (clock_t start);
 CRV_API inline void           crv_print_avg_runtime_ms              (clock_t start, size_t iters);
 CRV_API inline void*          crv_ptr_align                         (void* ptr, size_t alignment);
@@ -127,7 +127,7 @@ CRV_API void                  crv_tensor_print                      (tensor_t* t
 
 #ifdef CRV_IMPLEMENTATION
 
-#include <assert.h> 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -241,7 +241,7 @@ void crv_gemm_kernel_n(float* C, size_t ldc, const float* A, size_t lda, const f
 void crv_gemm_l1(float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t m, size_t n, size_t k) {
   for (size_t i = 0; i < m; i += CRV_GEMM_BLOCK * CRV_GEMM_BLOCK_M) {
     for (size_t j = 0; j < n; j += CRV_GEMM_BLOCK * CRV_GEMM_BLOCK_N) {
-  
+
       size_t mm = CRV_MIN(CRV_GEMM_BLOCK * CRV_GEMM_BLOCK_M, m - i);
       size_t nn = CRV_MIN(CRV_GEMM_BLOCK * CRV_GEMM_BLOCK_N, n - j);
 
@@ -260,6 +260,11 @@ void crv_gemm_l1(float* C, size_t ldc, const float* A, size_t lda, const float* 
 
 void crv_gemm(float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t m, size_t n, size_t k) {
   crv_gemm_l1(C, ldc, A, lda, B, ldb, m, n, k);
+}
+
+size_t crv_alloc_get_size(const char* end, const char* begin) {
+  assert(end >= begin);
+  return (uintptr_t)end - (uintptr_t)begin;
 }
 
 void crv_print_runtime_ms(clock_t start) {
@@ -314,7 +319,7 @@ void crv_tensor_validate(tensor_t* tensor) {
   assert(tensor != NULL);
   assert(tensor->data != NULL);
   assert(tensor->rank > 0);
-  assert(tensor->rank <= CRV_MAX_RANK);
+  assert(tensor->rank <= CRV_TENSOR_MAX_RANK);
   assert(tensor->count > 0);
   assert(tensor->count <= tensor->cap);
   assert(tensor->cap > 0);
@@ -336,7 +341,7 @@ void crv_tensor_get_strides(tensor_t* tensor, size_t* strides) {
   size_t* dims = tensor->dims;
   strides[rank - 1] = 1;
   for (size_t i = rank - 1; i > 0; --i) {
-    strides[i - 1] = strides[i] * dims[i]; 
+    strides[i - 1] = strides[i] * dims[i];
   }
 }
 
@@ -419,7 +424,7 @@ void crv_tensor_init(tensor_t* tensor, size_t* dims, size_t rank) {
     tensor->dims[i] = dims[i];
     count *= dims[i];
   }
-  
+
   assert(count <= tensor->cap);
 
   tensor->count = count;
@@ -444,14 +449,14 @@ tensor_t* crv_tensor_load_from_memory_iterator(char** dest_it, const char** src_
   crv_read_array(src_it, name, name_len * sizeof(*name));
 
   size_t rank = crv_read_u32_le(src_it);
-  uint32_t dims[CRV_MAX_RANK];
+  uint32_t dims[CRV_TENSOR_MAX_RANK];
   crv_read_array(src_it, dims, rank * sizeof(dims[0]));
 
   size_t item_count = crv_read_u32_le(src_it);
 
-  size_t dims_to_use[CRV_MAX_RANK];
+  size_t dims_to_use[CRV_TENSOR_MAX_RANK];
   for (size_t i = 0; i < rank; ++i) {
-    dims_to_use[i] = dims[i]; 
+    dims_to_use[i] = dims[i];
   }
 
   tensor_t* tensor = crv_tensor_create(dest_it, dims_to_use, rank, CRV_TENSOR_AUTO_CAP, CRV_NO_SWAP);
@@ -727,7 +732,7 @@ void crv_tensor_trunc(tensor_t* tensor, size_t left_trunc, size_t right_trunc) {
     assert(!(left_trunc == 0 && right_trunc == 0) &&
       "No point in truncating if both values are zero.");
   );
-  
+
   size_t count = tensor->count;
   size_t rank = tensor->rank;
   size_t x_len = tensor->dims[rank - 1];
@@ -735,18 +740,18 @@ void crv_tensor_trunc(tensor_t* tensor, size_t left_trunc, size_t right_trunc) {
   assert(count % x_len == 0 &&
     "If the last dimension isn't a multiple of the item_count then there is something wrong.");
 
-  size_t y_len = x_len - left_trunc - right_trunc;   
+  size_t y_len = x_len - left_trunc - right_trunc;
 
   float* x = tensor->data;
   float* y = tensor->swap;
 
   for (size_t r = 0, w = 0; r < count;) {
-    memcpy(&y[w], &x[r + left_trunc], y_len * sizeof(float)); 
+    memcpy(&y[w], &x[r + left_trunc], y_len * sizeof(float));
     r += x_len;
     w += y_len;
   }
 
-  tensor->dims[rank - 1] = y_len;  
+  tensor->dims[rank - 1] = y_len;
   tensor->data = y;
   tensor->swap = x;
   tensor->count = count / x_len * y_len;
@@ -760,7 +765,7 @@ void crv_tensor_roll(tensor_t* tensor, int32_t shift, size_t dim) {
     assert(dim > 0);
   );
 
-  size_t strides[CRV_MAX_RANK]; 
+  size_t strides[CRV_TENSOR_MAX_RANK];
   crv_tensor_get_strides(tensor, &strides[0]);
 
   float* x = tensor->data;
@@ -768,7 +773,7 @@ void crv_tensor_roll(tensor_t* tensor, int32_t shift, size_t dim) {
   size_t count = tensor->count;
   size_t rank = tensor->rank;
 
-  size_t indices[CRV_MAX_RANK];
+  size_t indices[CRV_TENSOR_MAX_RANK];
   for (size_t i = 0; i < count; ++i) {
     size_t tmp = i;
     for (size_t j = 0; j < rank; ++j) {
@@ -779,9 +784,9 @@ void crv_tensor_roll(tensor_t* tensor, int32_t shift, size_t dim) {
     if (indices[dim] + shift < 0) {
       indices[dim] += shift + tensor->dims[dim];
     } else if (indices[dim] + shift > tensor->dims[dim]) {
-      indices[dim] += shift - tensor->dims[dim]; 
+      indices[dim] += shift - tensor->dims[dim];
     } else {
-      indices[dim] += shift; 
+      indices[dim] += shift;
     }
 
     indices[dim] = ((long)indices[dim] + shift) % (long)tensor->dims[dim];
@@ -861,8 +866,8 @@ void crv_tensor_transpose(tensor_t* tensor, size_t dim1, size_t dim2) {
   size_t rank = tensor->rank;
   size_t item_count = tensor->count;
 
-  size_t old_dims[CRV_MAX_RANK] = {};
-  size_t new_dims[CRV_MAX_RANK] = {};
+  size_t old_dims[CRV_TENSOR_MAX_RANK] = {};
+  size_t new_dims[CRV_TENSOR_MAX_RANK] = {};
 
   for (size_t i = 0; i < rank; ++i) {
     old_dims[i] = tensor->dims[i];
@@ -872,8 +877,8 @@ void crv_tensor_transpose(tensor_t* tensor, size_t dim1, size_t dim2) {
   new_dims[dim1] = old_dims[dim2];
   new_dims[dim2] = old_dims[dim1];
 
-  size_t old_strides[CRV_MAX_RANK] = {};
-  size_t new_strides[CRV_MAX_RANK] = {};
+  size_t old_strides[CRV_TENSOR_MAX_RANK] = {};
+  size_t new_strides[CRV_TENSOR_MAX_RANK] = {};
 
   old_strides[rank - 1] = 1;
   new_strides[rank - 1] = 1;
@@ -886,7 +891,7 @@ void crv_tensor_transpose(tensor_t* tensor, size_t dim1, size_t dim2) {
   float* x = tensor->data;
   float* y = tensor->swap;
 
-  size_t indices[CRV_MAX_RANK] = {};
+  size_t indices[CRV_TENSOR_MAX_RANK] = {};
 
   for (size_t i = 0; i < item_count; ++i) {
     size_t tmp = i;
@@ -917,16 +922,16 @@ void crv_tensor_transpose(tensor_t* tensor, size_t dim1, size_t dim2) {
 void crv_tensor_permute(tensor_t* tensor, size_t* dims, size_t rank) {
   CRV_DO_INTERNAL(
     crv_tensor_validate(tensor);
-    assert(dims != NULL);  
+    assert(dims != NULL);
     assert(rank > 0);
     assert(tensor->rank == rank);
   );
 
-  size_t old_strides[CRV_MAX_RANK]; 
-  size_t new_strides[CRV_MAX_RANK]; 
+  size_t old_strides[CRV_TENSOR_MAX_RANK];
+  size_t new_strides[CRV_TENSOR_MAX_RANK];
 
-  size_t old_dims[CRV_MAX_RANK];
-  size_t new_dims[CRV_MAX_RANK];
+  size_t old_dims[CRV_TENSOR_MAX_RANK];
+  size_t new_dims[CRV_TENSOR_MAX_RANK];
 
   for (size_t i = 0; i < rank; ++i) {
     old_dims[i] = tensor->dims[i];
@@ -941,8 +946,8 @@ void crv_tensor_permute(tensor_t* tensor, size_t* dims, size_t rank) {
     new_strides[i - 1] = new_strides[i] * new_dims[i];
   }
 
-  size_t old_indices[CRV_MAX_RANK];
-  size_t new_indices[CRV_MAX_RANK];
+  size_t old_indices[CRV_TENSOR_MAX_RANK];
+  size_t new_indices[CRV_TENSOR_MAX_RANK];
   size_t count = tensor->count;
   float* x = tensor->data;
   float* y = tensor->swap;
@@ -982,11 +987,11 @@ void crv_tensor_flip(tensor_t* tensor, size_t dim) {
   );
 
   size_t rank = tensor->rank;
-  size_t strides[CRV_MAX_RANK]; 
+  size_t strides[CRV_TENSOR_MAX_RANK];
   crv_tensor_get_strides(tensor, &strides[0]);
-  size_t* dims = tensor->dims; 
+  size_t* dims = tensor->dims;
 
-  size_t indices[CRV_MAX_RANK];
+  size_t indices[CRV_TENSOR_MAX_RANK];
   size_t count = tensor->count;
   float* x = tensor->data;
   float* y = tensor->swap;
@@ -1050,7 +1055,7 @@ void crv_tensor_leaky_relu(tensor_t* tensor, float alpha) {
   size_t count = tensor->count;
   float* data = tensor->data;
   for (size_t i = 0; i < count; ++i) {
-    data[i] = data[i] >= 0.f ? data[i] : data[i] * alpha;   
+    data[i] = data[i] >= 0.f ? data[i] : data[i] * alpha;
   }
 }
 
@@ -1117,8 +1122,8 @@ void crv_tensor_reshape(tensor_t* tensor, size_t* dims, size_t rank) {
 
   size_t count = 1;
   for (size_t i = 0; i < rank; ++i) {
-    count *= dims[i]; 
-    tensor->dims[i] = dims[i];  
+    count *= dims[i];
+    tensor->dims[i] = dims[i];
   }
 
   assert(count == tensor->count);
@@ -1153,7 +1158,7 @@ void crv_tensor_conv1d(tensor_t* x, tensor_t* w, size_t stride, size_t dilation)
   float* w_data = w->data;
   float* y_data = x->swap;
 
-  size_t strides[CRV_MAX_RANK];
+  size_t strides[CRV_TENSOR_MAX_RANK];
   crv_tensor_get_strides(x, strides);
 
   size_t im2col_rows = in_ch * w_len;
@@ -1284,7 +1289,7 @@ void crv_tensor_conv_transpose1d(tensor_t* x, tensor_t* w, size_t stride, size_t
 //
 //  float* im2col = (float*)malloc(N * sizeof(float));
 //  memset(im2col, 0, N * sizeof(float));
-//    
+//
 //  for (size_t b = 0; b < batches; ++b) {
 //    for (size_t ic = 0; ic < in_ch; ++ic) {
 //      for () {
@@ -1495,7 +1500,7 @@ void crv_tensor_print_shape(tensor_t* tensor) {
 
   size_t rank = tensor->rank;
 
-  printf("%s shape: [", tensor->name); 
+  printf("%s shape: [", tensor->name);
 
   for (size_t i = 0; i < rank - 1; ++i) {
     printf("%zu, ", tensor->dims[i]);
@@ -1510,7 +1515,7 @@ void crv_tensor_print_data(tensor_t* tensor) {
   );
 
   // TODO(luca): Add nicer tensor printing.
-  printf("Content of tensor: %s\n", tensor->name); 
+  printf("Content of tensor: %s\n", tensor->name);
   for (size_t i = 0; i < tensor->count; ++i) {
     printf("%.0f, ", tensor->data[i]);
   }

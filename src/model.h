@@ -14,6 +14,18 @@ typedef struct {
   uint32_t num_tensors;
 } header_t;
 
+void header_print(header_t* header) {
+  printf("\n");
+  printf("Model header:\n");
+  printf(" Size:         %llu\n", header->size);
+  printf(" Config:       %llu\n", header->config);
+  printf(" Block size:   %u\n",   header->block_size);
+  printf(" Num latents:  %u\n",   header->num_latents);
+  printf(" Sample rate:  %u\n",   header->sample_rate);
+  printf(" Num tensors:  %u\n",   header->num_tensors);
+  printf("\n");
+}
+
 typedef struct {
   tensor_t* noise;
   tensor_t* latent_pca;
@@ -471,7 +483,7 @@ void v2_cache_slice(tensor_t* cache, tensor_t* input) {
     assert(input_size >= cache_size);
   );
 
-  size_t strides[CRV_MAX_RANK];
+  size_t strides[CRV_TENSOR_MAX_RANK];
   crv_tensor_get_strides(input, &strides[0]);
 
   size_t stride = strides[1];
@@ -517,7 +529,7 @@ void v2_cached_conv_transpose1d(tensor_t* input, tensor_t* weights, tensor_t* ca
     assert(input_size >= cache_size);
   );
 
-  size_t strides[CRV_MAX_RANK];
+  size_t strides[CRV_TENSOR_MAX_RANK];
   crv_tensor_get_strides(input, &strides[0]);
 
   size_t input_stride = strides[1];

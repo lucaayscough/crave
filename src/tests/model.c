@@ -16,16 +16,7 @@ int main(int argc, char* argv[]) {
       char* it = file_data + size;
 
       if (model_load(&it, file_data, &model) == MODEL_LOAD_SUCCESS) {
-
-        printf("\n");
-        printf("Model header:\n");
-        printf(" Size:         %llu\n", model.header.size);
-        printf(" Config:       %llu\n", model.header.config);
-        printf(" Block size:   %u\n",   model.header.block_size);
-        printf(" Num latents:  %u\n",   model.header.num_latents);
-        printf(" Sample rate:  %u\n",   model.header.sample_rate);
-        printf(" Num tensors:  %u\n",   model.header.num_tensors);
-        printf("\n");
+        header_print(&model.header);
 
         // NOTE(luca): This is a hack, I just know it's here.
         tensor_list_t* list = (tensor_list_t*)(file_data + size);
@@ -37,6 +28,9 @@ int main(int argc, char* argv[]) {
 
         crv_tensor_print_shape(z);
         tensor_t* input = crv_tensor_create(&it, CRV_TPL(16 * 2048), CRV_TENSOR_AUTO_CAP, CRV_SWAP);
+
+        size_t alloc_size = crv_alloc_get_size(it, (char*)memory);
+        printf("Total alloc size: %zu\n", alloc_size);
 
         clock_t start = clock();
 
