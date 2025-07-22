@@ -53,6 +53,7 @@ typedef struct {
 
 CRV_API inline void           crv_gemm_kernel_1x2                   (float* C, float a, const float* B);
 CRV_API inline void           crv_gemm_kernel_1x4                   (float* C, float a, const float* B);
+CRV_API inline void           crv_gemm_kernel_4x1                   (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t k);
 CRV_API inline void           crv_gemm_kernel_4x2                   (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t k);
 CRV_API inline void           crv_gemm_kernel_4x8                   (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t k);
 CRV_API inline void           crv_gemm_kernel_4x16                  (float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t k);
@@ -172,6 +173,20 @@ void crv_gemm_kernel_1x4(float* C, float a, const float* B) {
   C[3] = a * B[3] + C[3];
 }
 
+void crv_gemm_kernel_4x1(float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t k) {
+  alignas(32) float CC[4] = {};
+
+  for (size_t p = 0; p < k; ++p) {
+    for (size_t i = 0; i < 4; ++i) {
+      CC[i] += A[i * lda + p] * B[p * ldb];
+    }
+  }
+
+  for (size_t i = 0; i < 4; ++i) {
+    C[i * ldc] += CC[i];
+  }
+}
+
 void crv_gemm_kernel_4x2(float* C, size_t ldc, const float* A, size_t lda, const float* B, size_t ldb, size_t k) {
   alignas(32) float CC[4][2] = {};
 
@@ -251,6 +266,8 @@ void crv_gemm_l1(float* C, size_t ldc, const float* A, size_t lda, const float* 
         crv_gemm_kernel_4x8(&C[i * ldc + j], ldc, &A[i * lda], lda, &B[j], ldb, k);
       } else if (mm == 4 && nn == 2) {
         crv_gemm_kernel_4x2(&C[i * ldc + j], ldc, &A[i * lda], lda, &B[j], ldb, k);
+      } else if (mm == 4 && nn == 1) {
+        crv_gemm_kernel_4x1(&C[i * ldc + j], ldc, &A[i * lda], lda, &B[j], ldb, k);
       } else {
         crv_gemm_kernel_n(&C[i * ldc + j], ldc, &A[i * lda], lda, &B[j], ldb, mm, nn, k);
       }
@@ -1165,7 +1182,7 @@ void crv_tensor_conv1d(tensor_t* x, tensor_t* w, size_t stride, size_t dilation)
   size_t im2col_cols = y_len;
 
 #ifdef CRV_TENSOR_CONV1D_PRINT_IM2COL_SIZE
-  printf("IM2COL rows: %zu, cols: %zu, total: %zu\n", im2col_rows, im2col_cols, im2col_rows * im2col_cols);
+  printf("CONV1D IM2COL rows: %zu, cols: %zu, total: %zu\n", im2col_rows, im2col_cols, im2col_rows * im2col_cols);
 #endif
 
   float* scratch = (float*)aligned_alloc(32, im2col_rows * im2col_cols * sizeof(float));
@@ -1280,26 +1297,9 @@ void crv_tensor_conv_transpose1d(tensor_t* x, tensor_t* w, size_t stride, size_t
 
   memset(y_data, 0, x->count * sizeof(float));
 
-//#ifdef CRV_IM2COL
-//  assert(batches == 1);
-//
-//  size_t rows = y_len;
-//  size_t cols = w_len;
-//  size_t N = rows * cols;
-//
-//  float* im2col = (float*)malloc(N * sizeof(float));
-//  memset(im2col, 0, N * sizeof(float));
-//
-//  for (size_t b = 0; b < batches; ++b) {
-//    for (size_t ic = 0; ic < in_ch; ++ic) {
-//      for () {
-//
-//      }
-//    }
-//  }
-//
-//  free(im2col);
-//#else
+  //struct timespec start, end;
+  //clock_gettime(CLOCK_MONOTONIC, &start);
+
   for (size_t b = 0; b < batches; ++b) {
     for (size_t ic = 0; ic < x_in_ch; ++ic) {
       for (size_t i = 0; i < x_len; ++i) {
@@ -1315,7 +1315,10 @@ void crv_tensor_conv_transpose1d(tensor_t* x, tensor_t* w, size_t stride, size_t
       }
     }
   }
-//#endif
+
+  //clock_gettime(CLOCK_MONOTONIC, &end);
+  //double elapsed = CRV_ELAPSED_TIME(start, end);
+  //printf("%.6f\n", elapsed);
 
   x->data = y_data;
   x->swap = x_data;
