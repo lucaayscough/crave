@@ -1,5 +1,7 @@
 #define MODEL_TEST
 //#define CRV_TENSOR_CONV1D_PRINT_IM2COL_SIZE
+//#define CRV_TENSOR_CONV1D_PRINT_ELAPSED_TIME
+//#define CRV_TENSOR_CONV_TRANSPOSE1D_PRINT_ELAPSED_TIME
 #include "../model.h"
 
 int main(int argc, char* argv[]) {
