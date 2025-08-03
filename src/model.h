@@ -66,6 +66,8 @@ typedef struct {
   tensor_t* net_21_weight;
   tensor_t* mask;
   tensor_t* skip;
+  float* work;
+  size_t work_size;
 } v1_model_t;
 
 typedef struct {
@@ -150,6 +152,8 @@ typedef struct {
   tensor_t* ir_noise;
   tensor_t* scratch_1;
   tensor_t* scratch_2;
+  float* work;
+  size_t work_size;
 } v2_model_t;
 
 typedef struct {
@@ -295,17 +299,22 @@ int v1_load(char** dest, v1_model_t* w, tensor_list_t* list) {
   crv_tensor_unsqueeze(w->latent_mean, 0);
   crv_tensor_unsqueeze(w->latent_mean, w->latent_mean->rank);
 
+  w->work_size = 1e6;
+  *dest = (char*)crv_ptr_align(*dest, 16);
+  w->work = (float*)*dest;
+  *dest += w->work_size;
+
   return MODEL_LOAD_SUCCESS;
 }
 
 void v1_decode(tensor_t* z, v1_model_t* w) {
   crv_tensor_cat(z, w->noise, 1, CRV_BACK);
-  crv_tensor_conv1d(z, w->latent_pca, 1, 1);
+  crv_tensor_conv1d(z, w->latent_pca, 1, 1, w->work);
   crv_tensor_tadd(z, w->latent_mean);
 
   // (0)
   crv_tensor_pad(z, 2, 0);
-  crv_tensor_conv1d(z, w->net_0_weight, 1, 1);
+  crv_tensor_conv1d(z, w->net_0_weight, 1, 1, w->work);
   crv_tensor_init(z, CRV_TPL(1, 256, 1));
 
   // (1)
@@ -320,18 +329,18 @@ void v1_decode(tensor_t* z, v1_model_t* w) {
   crv_tensor_copy(w->skip, z);
   crv_tensor_leaky_relu(z, 0.2f);
   crv_tensor_pad(z, 2, 0);
-  crv_tensor_conv1d(z, w->decoder_net_3_aligned_branches_0_net_1_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_3_aligned_branches_0_net_1_weight, 1, 1, w->work);
   crv_tensor_leaky_relu(z, 0.2f);
-  crv_tensor_conv1d(z, w->decoder_net_3_aligned_branches_0_net_3_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_3_aligned_branches_0_net_3_weight, 1, 1, w->work);
   crv_tensor_tadd(z, w->skip);
 
   // (4)
   crv_tensor_copy(w->skip, z);
   crv_tensor_leaky_relu(z, 0.2f);
   crv_tensor_pad(z, 6, 0);
-  crv_tensor_conv1d(z, w->decoder_net_4_aligned_branches_0_net_1_weight, 1, 3);
+  crv_tensor_conv1d(z, w->decoder_net_4_aligned_branches_0_net_1_weight, 1, 3, w->work);
   crv_tensor_leaky_relu(z, 0.2f);
-  crv_tensor_conv1d(z, w->decoder_net_4_aligned_branches_0_net_3_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_4_aligned_branches_0_net_3_weight, 1, 1, w->work);
   crv_tensor_tadd(z, w->skip);
 
   // (5)
@@ -346,27 +355,27 @@ void v1_decode(tensor_t* z, v1_model_t* w) {
   crv_tensor_copy(w->skip, z);
   crv_tensor_leaky_relu(z, 0.2f);
   crv_tensor_pad(z, 2, 0);
-  crv_tensor_conv1d(z, w->decoder_net_7_aligned_branches_0_net_1_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_7_aligned_branches_0_net_1_weight, 1, 1, w->work);
   crv_tensor_leaky_relu(z, 0.2f);
-  crv_tensor_conv1d(z, w->decoder_net_7_aligned_branches_0_net_3_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_7_aligned_branches_0_net_3_weight, 1, 1, w->work);
   crv_tensor_tadd(z, w->skip);
 
   // (8)
   crv_tensor_copy(w->skip, z);
   crv_tensor_leaky_relu(z, 0.2f);
   crv_tensor_pad(z, 6, 0);
-  crv_tensor_conv1d(z, w->decoder_net_8_aligned_branches_0_net_1_weight, 1, 3);
+  crv_tensor_conv1d(z, w->decoder_net_8_aligned_branches_0_net_1_weight, 1, 3, w->work);
   crv_tensor_leaky_relu(z, 0.2f);
-  crv_tensor_conv1d(z, w->decoder_net_8_aligned_branches_0_net_3_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_8_aligned_branches_0_net_3_weight, 1, 1, w->work);
   crv_tensor_tadd(z, w->skip);
 
   // (9)
   crv_tensor_copy(w->skip, z);
   crv_tensor_leaky_relu(z, 0.2f);
   crv_tensor_pad(z, 18, 0);
-  crv_tensor_conv1d(z, w->decoder_net_9_aligned_branches_0_net_1_weight, 1, 9);
+  crv_tensor_conv1d(z, w->decoder_net_9_aligned_branches_0_net_1_weight, 1, 9, w->work);
   crv_tensor_leaky_relu(z, 0.2f);
-  crv_tensor_conv1d(z, w->decoder_net_9_aligned_branches_0_net_3_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_9_aligned_branches_0_net_3_weight, 1, 1, w->work);
   crv_tensor_tadd(z, w->skip);
 
   // (10)
@@ -381,27 +390,27 @@ void v1_decode(tensor_t* z, v1_model_t* w) {
   crv_tensor_copy(w->skip, z);
   crv_tensor_leaky_relu(z, 0.2f);
   crv_tensor_pad(z, 2, 0);
-  crv_tensor_conv1d(z, w->decoder_net_12_aligned_branches_0_net_1_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_12_aligned_branches_0_net_1_weight, 1, 1, w->work);
   crv_tensor_leaky_relu(z, 0.2f);
-  crv_tensor_conv1d(z, w->decoder_net_12_aligned_branches_0_net_3_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_12_aligned_branches_0_net_3_weight, 1, 1, w->work);
   crv_tensor_tadd(z, w->skip);
 
   // (13)
   crv_tensor_copy(w->skip, z);
   crv_tensor_leaky_relu(z, 0.2f);
   crv_tensor_pad(z, 6, 0);
-  crv_tensor_conv1d(z, w->decoder_net_13_aligned_branches_0_net_1_weight, 1, 3);
+  crv_tensor_conv1d(z, w->decoder_net_13_aligned_branches_0_net_1_weight, 1, 3, w->work);
   crv_tensor_leaky_relu(z, 0.2f);
-  crv_tensor_conv1d(z, w->decoder_net_13_aligned_branches_0_net_3_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_13_aligned_branches_0_net_3_weight, 1, 1, w->work);
   crv_tensor_tadd(z, w->skip);
 
   // (14)
   crv_tensor_copy(w->skip, z);
   crv_tensor_leaky_relu(z, 0.2f);
   crv_tensor_pad(z, 18, 0);
-  crv_tensor_conv1d(z, w->decoder_net_14_aligned_branches_0_net_1_weight, 1, 9);
+  crv_tensor_conv1d(z, w->decoder_net_14_aligned_branches_0_net_1_weight, 1, 9, w->work);
   crv_tensor_leaky_relu(z, 0.2f);
-  crv_tensor_conv1d(z, w->decoder_net_14_aligned_branches_0_net_3_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_14_aligned_branches_0_net_3_weight, 1, 1, w->work);
   crv_tensor_tadd(z, w->skip);
 
   // (15)
@@ -416,27 +425,27 @@ void v1_decode(tensor_t* z, v1_model_t* w) {
   crv_tensor_copy(w->skip, z);
   crv_tensor_leaky_relu(z, 0.2f);
   crv_tensor_pad(z, 2, 0);
-  crv_tensor_conv1d(z, w->decoder_net_17_aligned_branches_0_net_1_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_17_aligned_branches_0_net_1_weight, 1, 1, w->work);
   crv_tensor_leaky_relu(z, 0.2f);
-  crv_tensor_conv1d(z, w->decoder_net_17_aligned_branches_0_net_3_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_17_aligned_branches_0_net_3_weight, 1, 1, w->work);
   crv_tensor_tadd(z, w->skip);
 
   // (18)
   crv_tensor_copy(w->skip, z);
   crv_tensor_leaky_relu(z, 0.2f);
   crv_tensor_pad(z, 6, 0);
-  crv_tensor_conv1d(z, w->decoder_net_18_aligned_branches_0_net_1_weight, 1, 3);
+  crv_tensor_conv1d(z, w->decoder_net_18_aligned_branches_0_net_1_weight, 1, 3, w->work);
   crv_tensor_leaky_relu(z, 0.2f);
-  crv_tensor_conv1d(z, w->decoder_net_18_aligned_branches_0_net_3_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_18_aligned_branches_0_net_3_weight, 1, 1, w->work);
   crv_tensor_tadd(z, w->skip);
 
   // (19)
   crv_tensor_copy(w->skip, z);
   crv_tensor_leaky_relu(z, 0.2f);
   crv_tensor_pad(z, 18, 0);
-  crv_tensor_conv1d(z, w->decoder_net_19_aligned_branches_0_net_1_weight, 1, 9);
+  crv_tensor_conv1d(z, w->decoder_net_19_aligned_branches_0_net_1_weight, 1, 9, w->work);
   crv_tensor_leaky_relu(z, 0.2f);
-  crv_tensor_conv1d(z, w->decoder_net_19_aligned_branches_0_net_3_weight, 1, 1);
+  crv_tensor_conv1d(z, w->decoder_net_19_aligned_branches_0_net_3_weight, 1, 1, w->work);
   crv_tensor_tadd(z, w->skip);
 
   // (20)
@@ -444,7 +453,7 @@ void v1_decode(tensor_t* z, v1_model_t* w) {
 
   // (21)
   crv_tensor_pad(z, 6, 0);
-  crv_tensor_conv1d(z, w->net_21_weight, 1, 1);
+  crv_tensor_conv1d(z, w->net_21_weight, 1, 1, w->work);
 
   tensor_t* amplitude = w->skip;
 
@@ -457,7 +466,7 @@ void v1_decode(tensor_t* z, v1_model_t* w) {
   crv_tensor_reshape(z, CRV_TPL(1, 16, 128)); 
   crv_tensor_tmul(z, w->mask);
   crv_tensor_pad(z, 32, 0);
-  crv_tensor_conv1d(z, w->pqmf_inverse_conv_weight, 1, 1);
+  crv_tensor_conv1d(z, w->pqmf_inverse_conv_weight, 1, 1, w->work);
   crv_tensor_mul(z, 16);
   crv_tensor_flip(z, 1);
   crv_tensor_permute(z, CRV_TPL(0, 2, 1));
@@ -506,10 +515,10 @@ void v2_cached_pad(tensor_t* input, tensor_t* cache) {
   crv_tensor_trunc(input, 0, cache_size);
 }
 
-void v2_cached_conv1d(tensor_t* input, tensor_t* weights, tensor_t* cache, size_t stride, size_t dilation) {
+void v2_cached_conv1d(tensor_t* input, tensor_t* weights, tensor_t* cache, size_t stride, size_t dilation, float* work) {
   crv_tensor_cat(input, cache, crv_tensor_get_last_dim_index(input), CRV_FRONT);
   v2_cache_slice(cache, input);
-  crv_tensor_conv1d(input, weights, stride, dilation);
+  crv_tensor_conv1d(input, weights, stride, dilation, work);
 }
 
 void v2_cached_conv_transpose1d(tensor_t* input, tensor_t* weights, tensor_t* cache, size_t stride, size_t dilation) {
@@ -743,6 +752,11 @@ int v2_load(char** dest, v2_model_t* w, tensor_list_t* list) {
   crv_tensor_unsqueeze(w->latent_mean, 0);
   crv_tensor_unsqueeze(w->latent_mean, w->latent_mean->rank);
 
+  w->work_size = 1e6;
+  *dest = (char*)crv_ptr_align(*dest, 16);
+  w->work = (float*)*dest;
+  *dest += w->work_size;
+
   return MODEL_LOAD_SUCCESS;
 }
 
@@ -750,12 +764,12 @@ void v2_noise_generator(tensor_t* input, v2_model_t* w) {
   // TODO(luca): verify that we actually need this amp stuff as it seems to not
   // really be contributing anything.
 
-  v2_cached_conv1d(input, w->decoder_noise_module_net_0_weight, w->decoder_noise_module_net_0_cache_pad, 2, 1);
+  v2_cached_conv1d(input, w->decoder_noise_module_net_0_weight, w->decoder_noise_module_net_0_cache_pad, 2, 1, w->work);
 
   crv_tensor_snake(input, w->decoder_noise_module_net_1_alpha);
-  v2_cached_conv1d(input, w->decoder_noise_module_net_2_weight, w->decoder_noise_module_net_2_cache_pad, 2, 1);
+  v2_cached_conv1d(input, w->decoder_noise_module_net_2_weight, w->decoder_noise_module_net_2_cache_pad, 2, 1, w->work);
   crv_tensor_snake(input, w->decoder_noise_module_net_3_alpha);
-  v2_cached_conv1d(input, w->decoder_noise_module_net_4_weight, w->decoder_noise_module_net_4_cache_pad, 2, 1);
+  v2_cached_conv1d(input, w->decoder_noise_module_net_4_weight, w->decoder_noise_module_net_4_cache_pad, 2, 1, w->work);
   crv_tensor_add(input, -5.f);
 
   crv_tensor_sigmoid(input);
@@ -809,13 +823,13 @@ void v2_noise_generator(tensor_t* input, v2_model_t* w) {
   crv_tensor_reshape(input, CRV_TPL(1, 16, 128));
 }
 
-void v2_block(tensor_t* input, tensor_t* skip, tensor_t* w0, tensor_t* w1, tensor_t* c0, tensor_t* c1, size_t dilation) {
+void v2_block(tensor_t* input, tensor_t* skip, tensor_t* w0, tensor_t* w1, tensor_t* c0, tensor_t* c1, size_t dilation, float* work) {
   crv_tensor_copy(skip, input);
   v2_cached_pad(skip, c0);
   crv_tensor_leaky_relu(input, 0.2);
-  v2_cached_conv1d(input, w0, c1, 1, dilation);
+  v2_cached_conv1d(input, w0, c1, 1, dilation, work);
   crv_tensor_leaky_relu(input, 0.2);
-  crv_tensor_conv1d(input, w1, 1, 1);
+  crv_tensor_conv1d(input, w1, 1, 1, work);
   crv_tensor_tadd(input, skip);
 }
 
@@ -826,10 +840,10 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
 #endif
 
   crv_tensor_cat(z, w->noise, 1, CRV_BACK);
-  crv_tensor_conv1d(z, w->latent_pca, 1, 1);
+  crv_tensor_conv1d(z, w->latent_pca, 1, 1, w->work);
   crv_tensor_tadd(z, w->latent_mean);
 
-  v2_cached_conv1d(z, w->decoder_net_0_weight, w->decoder_net_0_cache_pad, 1, 1);
+  v2_cached_conv1d(z, w->decoder_net_0_weight, w->decoder_net_0_cache_pad, 1, 1, w->work);
   crv_tensor_snake(z, w->decoder_net_1_alpha);
   v2_cached_conv_transpose1d(z, w->decoder_net_2_weight, w->decoder_net_2_cache, 2, 1);
 
@@ -840,7 +854,8 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
     w->decoder_net_3_aligned_branches_0_net_3_weight,
     w->decoder_net_3_aligned_paddings_1_pad,
     w->decoder_net_3_aligned_branches_0_net_1_cache_pad,
-    1
+    1,
+    w->work
   );
 
   v2_block(
@@ -850,7 +865,8 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
     w->decoder_net_4_aligned_branches_0_net_3_weight,
     w->decoder_net_4_aligned_paddings_1_pad,
     w->decoder_net_4_aligned_branches_0_net_1_cache_pad,
-    3
+    3,
+    w->work
   );
 
   crv_tensor_snake(z, w->decoder_net_5_alpha);
@@ -863,7 +879,8 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
     w->decoder_net_7_aligned_branches_0_net_3_weight,
     w->decoder_net_7_aligned_paddings_1_pad,
     w->decoder_net_7_aligned_branches_0_net_1_cache_pad,
-    1
+    1,
+    w->work
   );
 
   v2_block(
@@ -873,7 +890,8 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
     w->decoder_net_8_aligned_branches_0_net_3_weight,
     w->decoder_net_8_aligned_paddings_1_pad,
     w->decoder_net_8_aligned_branches_0_net_1_cache_pad,
-    3
+    3,
+    w->work
   );
 
   v2_block(
@@ -883,7 +901,8 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
     w->decoder_net_9_aligned_branches_0_net_3_weight,
     w->decoder_net_9_aligned_paddings_1_pad,
     w->decoder_net_9_aligned_branches_0_net_1_cache_pad,
-    9
+    9,
+    w->work
   );
 
   crv_tensor_snake(z, w->decoder_net_10_alpha);
@@ -896,7 +915,8 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
     w->decoder_net_12_aligned_branches_0_net_3_weight,
     w->decoder_net_12_aligned_paddings_1_pad,
     w->decoder_net_12_aligned_branches_0_net_1_cache_pad,
-    1
+    1,
+    w->work
   );
 
   v2_block(
@@ -906,7 +926,8 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
     w->decoder_net_13_aligned_branches_0_net_3_weight,
     w->decoder_net_13_aligned_paddings_1_pad,
     w->decoder_net_13_aligned_branches_0_net_1_cache_pad,
-    3
+    3,
+    w->work
   );
 
   v2_block(
@@ -916,7 +937,8 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
     w->decoder_net_14_aligned_branches_0_net_3_weight,
     w->decoder_net_14_aligned_paddings_1_pad,
     w->decoder_net_14_aligned_branches_0_net_1_cache_pad,
-    9
+    9,
+    w->work
   );
 
   crv_tensor_snake(z, w->decoder_net_15_alpha);
@@ -929,7 +951,8 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
     w->decoder_net_17_aligned_branches_0_net_3_weight,
     w->decoder_net_17_aligned_paddings_1_pad,
     w->decoder_net_17_aligned_branches_0_net_1_cache_pad,
-    1
+    1,
+    w->work
   );
 
   v2_block(
@@ -939,7 +962,8 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
     w->decoder_net_18_aligned_branches_0_net_3_weight,
     w->decoder_net_18_aligned_paddings_1_pad,
     w->decoder_net_18_aligned_branches_0_net_1_cache_pad,
-    3
+    3,
+    w->work
   );
 
   v2_block(
@@ -949,7 +973,8 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
     w->decoder_net_19_aligned_branches_0_net_3_weight,
     w->decoder_net_19_aligned_paddings_1_pad,
     w->decoder_net_19_aligned_branches_0_net_1_cache_pad,
-    9
+    9,
+    w->work
   );
 
   crv_tensor_snake(z, w->decoder_net_20_alpha);
@@ -960,7 +985,7 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
   v2_noise_generator(noise, w);
 
   // Waveform module
-  v2_cached_conv1d(z, w->decoder_waveform_module_weight, w->decoder_waveform_module_cache_pad, 1, 1);
+  v2_cached_conv1d(z, w->decoder_waveform_module_weight, w->decoder_waveform_module_cache_pad, 1, 1, w->work);
 
   // Amplitude modulation
   tensor_t* amp = w->scratch_2;
@@ -973,7 +998,7 @@ void v2_decode(tensor_t* z, v2_model_t* w) {
   // Post
   crv_tensor_reshape(z, CRV_TPL(1, 16, 128)); 
   crv_tensor_tmul(z, w->mask);
-  v2_cached_conv1d(z, w->pqmf_inverse_conv_weight, w->pqmf_inverse_conv_cache_pad, 1, 1);
+  v2_cached_conv1d(z, w->pqmf_inverse_conv_weight, w->pqmf_inverse_conv_cache_pad, 1, 1, w->work);
   crv_tensor_mul(z, 16);
   crv_tensor_flip(z, 1);
   crv_tensor_permute(z, CRV_TPL(0, 2, 1));

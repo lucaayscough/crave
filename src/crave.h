@@ -38,8 +38,6 @@ typedef struct {
   float* data;
   float* swap;
   char* name;
-  float* work;
-  size_t work_size;
 } tensor_t;
 
 typedef struct {
@@ -106,7 +104,7 @@ CRV_API void                  crv_tensor_sigmoid                    (tensor_t* t
 CRV_API void                  crv_tensor_tanh                       (tensor_t* tensor);
 CRV_API void                  crv_tensor_split                      (tensor_t* dest, tensor_t* src);
 CRV_API void                  crv_tensor_reshape                    (tensor_t* tensor, size_t* dims, size_t rank);
-CRV_API void                  crv_tensor_conv1d                     (tensor_t* x, tensor_t* w, size_t stride, size_t dilation);
+CRV_API void                  crv_tensor_conv1d                     (tensor_t* x, tensor_t* w, size_t stride, size_t dilation, float* work);
 CRV_API void                  crv_tensor_conv_transpose1d           (tensor_t* x, tensor_t* w, size_t stride, size_t dilation);
 CRV_API void                  crv_tensor_rfft                       (tensor_t* tensor);
 CRV_API void                  crv_tensor_irfft                      (tensor_t* tensor);
@@ -1216,7 +1214,7 @@ void crv_tensor_reshape(tensor_t* tensor, size_t* dims, size_t rank) {
   tensor->rank = rank;
 }
 
-void crv_tensor_conv1d(tensor_t* x, tensor_t* w, size_t stride, size_t dilation) {
+void crv_tensor_conv1d(tensor_t* x, tensor_t* w, size_t stride, size_t dilation, float* work) {
 #ifdef CRV_TENSOR_CONV1D_PRINT_ELAPSED_TIME
   struct timespec start, end;
   clock_gettime(CLOCK_MONOTONIC, &start);
@@ -1254,9 +1252,9 @@ void crv_tensor_conv1d(tensor_t* x, tensor_t* w, size_t stride, size_t dilation)
 
   size_t im2col_rows = in_ch * w_len;
   size_t im2col_cols = y_len;
-
-  float* scratch = (float*)aligned_alloc(32, im2col_rows * im2col_cols * sizeof(float));
-  assert(scratch != NULL);
+  assert(work);
+  float* scratch = work;
+  assert((uintptr_t)scratch % 16 == 0);
 
   for (size_t b = 0; b < x_batches; ++b) {
     for (size_t m = 0; m < y_len; ++m) {
@@ -1284,7 +1282,8 @@ void crv_tensor_conv1d(tensor_t* x, tensor_t* w, size_t stride, size_t dilation)
     size_t k = im2col_rows;
 
 #ifdef CRV_TENSOR_CONV1D_PRINT_IM2COL_SIZE
-  printf("CONV1D IM2COL m: %zu, n: %zu, k: %zu\n", m, n, k);
+  size_t alloc_size = im2col_rows * im2col_cols * sizeof(float);
+  printf("CONV1D IM2COL m: %zu, n: %zu, k: %zu, alloc_size: %zu\n", m, n, k, alloc_size);
 #endif
 
     size_t ldc = n;
@@ -1316,8 +1315,6 @@ void crv_tensor_conv1d(tensor_t* x, tensor_t* w, size_t stride, size_t dilation)
     crv_gemm(C, ldc, A, lda, B, ldb, m, n, k);
 #endif
   }
-
-  free(scratch);
 
   x->dims[1] = out_ch;
   x->dims[2] = y_len;
